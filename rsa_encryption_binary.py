@@ -310,4 +310,4 @@ if __name__ == '__main__':
     msg = msg3
     filename = 'weather.png'
     # args: main(msg, filename)
-    main("", filename)
+    main(msg3, "")

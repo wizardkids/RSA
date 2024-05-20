@@ -16,17 +16,33 @@ PUBLIC KEY CRYPTOGRAPHY IN SUMMARY:
 Source: https://condor.depaul.edu/ichu/csc415/notes/notes4/rsa.html
 """
 
+import json
 import math
 import sys
+from pathlib import Path
 from random import randint
 
+from rich import print
+from rich.traceback import install
+
+install(show_locals=True)
+
+import click
 from icecream import ic
 
-# ==============================================================================
+VERSION = "0.1"
 
+@click.command(help="Encrypt or decrypt a message using RSA encryption. [SOURCE] can be either a quote-delimited string or a file.\n\nThe encrypted message is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.")
+@click.option("-s", "source", type=str, required=False, help="Message to encrypt.")
+@click.option("-e", "--encrypt", is_flag=True, help="Encrypt a message using RSA public key encryption.")
+@click.option("-d", "--decrypt", is_flag=True, help="Decrypt a message using RSA private key decryption.")
+@click.version_option(version=VERSION)
+def cli(source, encrypt, decrypt) -> None:
+    ic(source)
+    ic(encrypt)
+    ic(decrypt)
 
-# ==============================================================================
-
+    main(source, encrypt, decrypt)
 
 def modinv(a: int, b: int) -> int:
     """
@@ -135,8 +151,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
 
         # CODENOTE: We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
 
-        # Here, we return the public_key, private_key, p, and q to main():
-
+        # Here, we return the public_key, private_key, p, and q:
         return [e, n], [d, n], p, q
 
     def get_ints() -> tuple[int, int, int, int, int]:
@@ -166,7 +181,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
             n = p * q
 
         p, q = sorted([p, q])
-        T = (p - 1) * (q - 1)   # T is for Totient
+        T: int = (p - 1) * (q - 1)   # T is for Totient
 
         e, d = randint(5, 23), 3
         while d <= e:
@@ -178,7 +193,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
                 -- If T = 108, e = 29 then d = 41 satisfies this requirement...
                 -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
                 """
-                d = modinv(e, T)    # modular inverse of e mod T
+                d: int = modinv(e, T)    # modular inverse of e mod T
 
                 if is_prime(e) and coprime(e, T):
                     break
@@ -190,13 +205,12 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
     return public_key, p, q, private_key
 
 
-def encrypt(msg, public_key) -> str:
+def encrypt_msg(msg, public_key) -> str:
     """
     Using the public_key [e, n], encrypt the text in "msg".
 
     Parameters
     ----------
-    msg : str -- the text to decrypt
     public_key : list[int] -- e, n
 
     Returns
@@ -213,15 +227,15 @@ def encrypt(msg, public_key) -> str:
 
     e_msg = []
     for s in msg:
-        cyphtertext: int = (ord(s)**e) % n
-        e_msg.append(str(cyphtertext))
+        ciphertext: int = (ord(s)**e) % n
+        e_msg.append(str(ciphertext))
 
     encrypted_msg: str = " ".join(e_msg)
 
     return encrypted_msg
 
 
-def decrypt(msg, private_key) -> str:
+def decrypt_msg(private_key) -> str:
     """
     Decrypt "msg" using d, n in private_key.
 
@@ -232,7 +246,7 @@ def decrypt(msg, private_key) -> str:
 
     Parameters
     ----------
-    msg : str -- see encrypt() for description
+    msg : str -- see encrypt_msg() for description
     private_key : list[int] -- d, n
 
     Returns
@@ -243,19 +257,25 @@ def decrypt(msg, private_key) -> str:
     --------
 
     """
-    d = private_key[0]
-    n = private_key[1]
 
-    decrypt = []
-    encrypt = [int(x) for x in msg.split()]
+    p = Path("encrypted.txt")
+    if p.exists():
+        with open(p, "r", encoding='utf-8') as f:
+            msg = f.read()
+    else:
+        print("\nencrypted.txt does not exist.")
+        exit()
+
+    d: int = private_key[0]
+    n: int = private_key[1]
+
+    decrypt: list[str] = []
+    encrypt: list[int] = [int(x) for x in msg.split()]
     for cyphtertext in encrypt:
-        m = (cyphtertext**d) % n
-        # try:
+        m: int = (cyphtertext**d) % n
         decrypt.append(chr(m))
-        # except:
-        #     decrypt.append(chr(int(m[2:], 16)))
 
-    decrypted_msg = "".join(decrypt)
+    decrypted_msg: str = "".join(decrypt)
 
     return decrypted_msg
 
@@ -272,7 +292,7 @@ def print_ints(p, q, public_key, private_key) -> None:
     print()
 
 
-def cli() -> tuple[str, str]:
+def cli_old() -> tuple[str, str]:
     # If there are three arguments (first one is the script name), then
     # the first is set to an empty string and the second is taken as a file name.
     if len(sys.argv) == 3:
@@ -287,42 +307,51 @@ def cli() -> tuple[str, str]:
     return msg, filename
 
 
-def main(msg, filename) -> None:
-    if len(sys.argv) > 1:
-        msg, filename = cli()
-    else:
-        print('\nCOMMAND LINE ARGUMENTS (choose one or the other):\n   1. message (in quotes)\n   2. filename.ext\n\nInclude a message to handle just the text.\nInclude an empty string "" and a filename to handle a file.\n\nNOTE 1: Put file names with spaces in quotes.\nNOTE 2: Including only a file name will submit that name as just text.')
+def main(source: str, encrypt: str, decrypt: str) -> None:
+    """
+    read() reads in the file and returns ONE string comprising all the lines in the file where each line ends with \\n
+    """
 
-    if not msg and not filename:
-        print("\nNo message or file to process.\n")
-        sys.exit()
+    # Determine if "message" is a filename or not. A TypeError can occur if Path(source) raises an exception.
+    try:
+        p = Path(source)
+        if p.exists():
+            with open(p, 'r') as f:
+                msg = f.read()
+        else:
+            msg: str = source
+    except TypeError:
+        msg: str = source
 
-    # [e, n] and [d, n]
-    # p and q only required for debugging (see print_ints)
+    # generate_keys() takes no arguments but returns public_key [e, n], p, q, and private_key [d, n]
+    # p and q are only required for debugging (see print_ints() to print the details)
     public_key, p, q, private_key = generate_keys()
 
-    if not msg:
-        with open(filename, 'r') as f:
-            msg = f.read()
+    if encrypt:
+        encrypted_msg: str = encrypt_msg(msg, public_key)
 
-    encrypted_msg = encrypt(msg, public_key)
-    with open('encrypted_msg.txt', 'w') as f:
-        f.write(encrypted_msg)
+        # To decrypt, we need the private key, so save it in a file.
+        with open("private_key.txt", 'w') as f:
+            json.dump(private_key, f)
 
-    decrypted_msg = decrypt(encrypted_msg, private_key)
-    with open('decrypted_msg.txt', 'w', encoding='utf-8') as f:
-        f.write(decrypted_msg)
+        with open('encrypted.txt', 'w', encoding="utf-8") as f:
+            f.write(encrypted_msg)
 
-    print(f'\nEncrypted message saved as "encrypted_msg.txt"\nDecrypted message saved as "decrypted_msg.txt"')
+        print(f'\nEncrypted message saved as "encrypted.txt".')
 
-    # print()
-    # print(msg)
-    # print()
-    # print(encrypted_msg)
-    # print()
-    # print(decrypted_msg)
+    elif decrypt:
+        # To decrypt, get the private key from file.
+        with open("private_key.txt", 'r') as f:
+            private_key: list[int]= json.load(f)
 
-    # print_ints(p, q, public_key, private_key)
+        decrypted_msg: str = decrypt_msg(private_key)
+        with open('decrypted.txt', 'w', encoding='utf-8') as f:
+            f.write(decrypted_msg)
+
+        print(f'\nDecrypted message saved as "decrypted.txt"')
+
+    else:
+        print('No action specified. Please specify either "--encrypt" or "--decrypt".')
 
 
 if __name__ == '__main__':
@@ -341,4 +370,6 @@ if __name__ == '__main__':
     msg = msg3
     filename = 'abair blog.txt'
     # args: main(msg, filename)
-    main("", "")
+    # main("", "")
+
+    cli()
