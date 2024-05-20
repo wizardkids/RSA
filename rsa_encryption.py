@@ -21,26 +21,21 @@ import math
 from pathlib import Path
 from random import randint
 
-from rich import print
-from rich.traceback import install
-
-install(show_locals=True)
-
 import click
 from icecream import ic
 
 VERSION = "0.1"
 
-@click.command(help="Encrypt or decrypt a message using RSA encryption. [SOURCE] can be either a quote-delimited string or a file.\n\nThe encrypted message is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e -s \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
-@click.option("-s", "source", type=str, required=False, help="Message to encrypt.")
-@click.option("-e", "--encrypt", is_flag=True, help="Encrypt a message using RSA public key encryption.")
-@click.option("-d", "--decrypt", is_flag=True, help="Decrypt a message using RSA private key decryption.")
+@click.command(help="Encrypt or decrypt a message using RSA encryption. The message to encrypt can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
+@click.option("-e", "--encrypt", type=str, help="Encrypt the accompanying message/file using RSA public key encryption.")
+@click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message.")
 @click.version_option(version=VERSION)
-def cli(source, encrypt, decrypt) -> None:
+def cli(encrypt, decrypt) -> None:
+
     # ic(source)
     # ic(encrypt)
     # ic(decrypt)
-    main(source, encrypt, decrypt)
+    main(encrypt, decrypt)
 
 def modinv(a: int, b: int) -> int:
     """
@@ -112,9 +107,11 @@ def is_prime(n: int) -> bool:
     """
     if n <= 1:
         return False
+
     for i in range(2, n):
         if n % i == 0:
             return False
+
     return True
 
 
@@ -147,7 +144,8 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
 
         p, q, e, d, n = get_ints()
 
-        # CODENOTE: We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
+        # CODENOTE:
+        # We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
 
         # Here, we return the public_key, private_key, p, and q:
         return [e, n], [d, n], p, q
@@ -172,11 +170,11 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
         while n <= 1000:
             p = 4
             while not is_prime(p):
-                p = randint(5, 100)
+                p: int = randint(5, 100)
             q = 4
             while not is_prime(q):
-                q = randint(4, p - 1)
-            n = p * q
+                q: int = randint(4, p - 1)
+            n: int = p * q
 
         p, q = sorted([p, q])
         T: int = (p - 1) * (q - 1)   # T is for Totient
@@ -232,18 +230,18 @@ def encrypt_msg(msg, public_key) -> str:
     e: int = public_key[0]
     n: int = public_key[1]
 
-    chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe
+    chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
 
-    # Encode the message to bytes
-    message_bytes = msg.encode('utf-8')
+    # Encode the message to bytes.
+    message_bytes: bytes = msg.encode('utf-8')
 
-    # Convert the bytes to integers for encryption
-    e_msg: list[int] = []
+    # Convert the bytes to integers for encryption.
+    e_msg: list[str] = []
     for i in range(0, len(message_bytes), chunk_size):
-        chunk = message_bytes[i:i + chunk_size]
+        chunk: bytes = message_bytes[i:i + chunk_size]
         chunk_int: int = int.from_bytes(chunk, byteorder='big')
-        ciphertext: int = pow(chunk_int, e, n)
-        e_msg.append(str(ciphertext))
+        ciphertext: str = str(pow(chunk_int, e, n))
+        e_msg.append(ciphertext)
 
     encrypted_msg: str = " ".join(e_msg)
 
@@ -285,9 +283,9 @@ def decrypt_msg(private_key) -> str:
     decrypted_chunks: list[bytes] = []
     encrypted_chunks: list[int] = [int(x) for x in msg.split()]
     for ciphertext in encrypted_chunks:
-        decrypted_int = pow(ciphertext, d, n)
-        chunk_size = (decrypted_int.bit_length() + 7) // 8
-        decrypted_chunk = decrypted_int.to_bytes(chunk_size, byteorder='big')
+        decrypted_int: int = pow(ciphertext, d, n)
+        chunk_size: int = (decrypted_int.bit_length() + 7) // 8
+        decrypted_chunk: bytes = decrypted_int.to_bytes(chunk_size, byteorder='big')
         decrypted_chunks.append(decrypted_chunk)
 
     # Join the decrypted byte chunks
@@ -309,21 +307,26 @@ def print_ints(p, q, public_key, private_key) -> None:
     print()
 
 
-def main(source: str, encrypt: str, decrypt: str) -> None:
+def main(encrypt: str, decrypt: str) -> None:
     """
-    read() reads in the file and returns ONE string comprising all the lines in the file where each line ends with \\n
+    Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
+
+    Parameters
+    ----------
+    encrypt : str -- If the -e flag is set, "encrypt" is the message/file to encrypt.
+    decrypt : str -- if this flag is True, decrypt the contents of "encrypted.txt".
     """
 
-    # Determine if "message" is a filename or not. A TypeError can occur if Path(source) raises an exception.
+    # Determine if "encrypt" is a filename or not. A TypeError can occur if Path(source) raises an exception.
     try:
-        p = Path(source)
+        p = Path(encrypt)
         if p.exists():
-            with open(p, 'r') as f:
+            with open(p, 'r', encoding='utf-8') as f:
                 msg = f.read()
         else:
-            msg: str = source
+            msg: str = encrypt
     except TypeError:
-        msg: str = source
+        msg: str = encrypt
 
     # generate_keys() takes no arguments but returns public_key [e, n], p, q, and private_key [d, n]
     # p and q are only required for debugging (see print_ints() to print the details)
@@ -333,27 +336,27 @@ def main(source: str, encrypt: str, decrypt: str) -> None:
         encrypted_msg: str = encrypt_msg(msg, public_key)
 
         # To decrypt, we need the private key, so save it in a file.
-        with open("private_key.txt", 'w') as f:
+        with open("private_key.txt", 'w', encoding='utf-8') as f:
             json.dump(private_key, f)
 
         with open('encrypted.txt', 'w', encoding="utf-8") as f:
             f.write(encrypted_msg)
 
-        print(f'\nEncrypted message saved as "encrypted.txt".')
+        print('Encrypted message saved as "encrypted.txt".')
 
     elif decrypt:
         # To decrypt, get the private key from file.
-        with open("private_key.txt", 'r') as f:
+        with open("private_key.txt", 'r', encoding='utf-8') as f:
             private_key: list[int]= json.load(f)
 
         decrypted_msg: str = decrypt_msg(private_key)
         with open('decrypted.txt', 'w', encoding='utf-8') as f:
             f.write(decrypted_msg)
 
-        print(f'\nDecrypted message saved as "decrypted.txt"')
+        print('Decrypted message saved as "decrypted.txt"')
 
     else:
-        print('No action specified. Please specify either "--encrypt" or "--decrypt".')
+        print('No option specified.\nPlease specify either "-e | --encrypt" or "-d | --decrypt".')
 
 
 if __name__ == '__main__':
@@ -364,12 +367,10 @@ if __name__ == '__main__':
     msg1 = "Who is God? What do you imagine this Divine Being is like? God is likely shaped by a variety of factors, including what you were taught in your faith community, the way clergy modeled themselves, your relationship with parents, or significant life events. These can intersect with each other.\n\nFor example, you might have learned to view God as a father based on Scriptures that use this metaphor. For example, you might have learned to view God as a father based on Scriptures that use this metaphor."
 
     # Plain text with some very common unicode characters.
-    msg2 = "Paul asks prayer that God might “open a door” so that he can proclaim “the mystery of Christ” (4:3). The “kingdom of God” (4:11) can also be called “the kingdom of the Son he loves” (1:13). The cumulative effect of these references, when set beside the explicit assertions in 1:15, 1:19, and 2:9, is to suggest that Christ is divine: he is himself God. Colossians is therefore a prime witness to the “christological monotheism” that characterizes early Christianity.73"
+    msg2 = "Paul asks prayer that God might “open a door” so that he can proclaim “the mystery of Christ” (4:3). The “kingdom of God” (4:11) can also be called “the kingdom of the Son he loves” (1:13). The cumulative effect of these references, when set beside the explicit assertions in 1:15, 1:19, and 2:9, is to suggest that Christ is divine: he is himself God. Colossians is therefore a prime witness to the “christological monotheism” that characterizes early Christianity."
 
     # Plain text with both common and uncommon unicode characters.
     msg3 = "In the café, the bánh mì sandwich is a popular choice among the regulars. The flaky baguette, stuffed with savory grilled pork, pickled daikon and carrots, fresh cilantro, and a dollop of sriracha mayo, is the perfect lunchtime indulgence. As I sipped my matcha latte, I noticed the barista's shirt had a cute ねこ (neko, or cat) graphic on it. It reminded me of the time I visited Tokyo and saw the famous 東京タワー (Tokyo Tower) at night, aglow with colorful lights. The world is full of unique and beautiful symbols, and Unicode makes it possible to express them all in one cohesive language."
 
-    msg = msg3
-    filename = 'abair blog.txt'
-
+    print()
     cli()
