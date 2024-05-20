@@ -18,7 +18,6 @@ Source: https://condor.depaul.edu/ichu/csc415/notes/notes4/rsa.html
 
 import json
 import math
-import sys
 from pathlib import Path
 from random import randint
 
@@ -32,16 +31,15 @@ from icecream import ic
 
 VERSION = "0.1"
 
-@click.command(help="Encrypt or decrypt a message using RSA encryption. [SOURCE] can be either a quote-delimited string or a file.\n\nThe encrypted message is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.")
+@click.command(help="Encrypt or decrypt a message using RSA encryption. [SOURCE] can be either a quote-delimited string or a file.\n\nThe encrypted message is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e -s \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
 @click.option("-s", "source", type=str, required=False, help="Message to encrypt.")
 @click.option("-e", "--encrypt", is_flag=True, help="Encrypt a message using RSA public key encryption.")
 @click.option("-d", "--decrypt", is_flag=True, help="Decrypt a message using RSA private key decryption.")
 @click.version_option(version=VERSION)
 def cli(source, encrypt, decrypt) -> None:
-    ic(source)
-    ic(encrypt)
-    ic(decrypt)
-
+    # ic(source)
+    # ic(encrypt)
+    # ic(decrypt)
     main(source, encrypt, decrypt)
 
 def modinv(a: int, b: int) -> int:
@@ -254,7 +252,7 @@ def encrypt_msg(msg, public_key) -> str:
 
 def decrypt_msg(private_key) -> str:
     """
-    Decrypt the contents of "encrypted.txt" using d, n in private_key.
+    Decrypt the contents of "encrypted.txt" using "d" & "n" in "private_key".
 
     CODENOTE:
         Originally, the for... loop was:
@@ -262,7 +260,7 @@ def decrypt_msg(private_key) -> str:
                 m: int = (cyphtertext**d) % n
                 decrypt.append(chr(m))
 
-        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks.
+        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks (and the encryption process had to encrypt bytes in chunks).
 
     Parameters
     ----------
@@ -373,7 +371,5 @@ if __name__ == '__main__':
 
     msg = msg3
     filename = 'abair blog.txt'
-    # args: main(msg, filename)
-    # main("", "")
 
     cli()
