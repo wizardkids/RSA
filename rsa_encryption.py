@@ -207,7 +207,16 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
 
 def encrypt_msg(msg, public_key) -> str:
     """
-    Using the public_key [e, n], encrypt the text in "msg".
+    Using the public_key [e, n], encrypt the text in "msg". This function returns a string that will be saved to "encrypted.txt".
+
+    CODENOTE:
+        The for... loop was originally:
+            e_msg = []
+            for s in msg:
+                cyphtertext = (ord(s)**e) % n
+                e_msg.append(str(cyphtertext))
+
+        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to convert the string "msg" to bytes and encrypt the message in chunks.
 
     Parameters
     ----------
@@ -225,9 +234,17 @@ def encrypt_msg(msg, public_key) -> str:
     e: int = public_key[0]
     n: int = public_key[1]
 
-    e_msg = []
-    for s in msg:
-        ciphertext: int = (ord(s)**e) % n
+    chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe
+
+    # Encode the message to bytes
+    message_bytes = msg.encode('utf-8')
+
+    # Convert the bytes to integers for encryption
+    e_msg: list[int] = []
+    for i in range(0, len(message_bytes), chunk_size):
+        chunk = message_bytes[i:i + chunk_size]
+        chunk_int: int = int.from_bytes(chunk, byteorder='big')
+        ciphertext: int = pow(chunk_int, e, n)
         e_msg.append(str(ciphertext))
 
     encrypted_msg: str = " ".join(e_msg)
@@ -237,25 +254,23 @@ def encrypt_msg(msg, public_key) -> str:
 
 def decrypt_msg(private_key) -> str:
     """
-    Decrypt "msg" using d, n in private_key.
+    Decrypt the contents of "encrypted.txt" using d, n in private_key.
 
-    Args:
+    CODENOTE:
+        Originally, the for... loop was:
+            for cyphertext in encrypt:
+                m: int = (cyphtertext**d) % n
+                decrypt.append(chr(m))
 
-    Returns:
-        str: the decrypted text, as a single string
+        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks.
 
     Parameters
     ----------
-    msg : str -- see encrypt_msg() for description
     private_key : list[int] -- d, n
 
     Returns
     -------
     str -- decrypted "msg"...
-
-    Examples
-    --------
-
     """
 
     p = Path("encrypted.txt")
@@ -269,13 +284,17 @@ def decrypt_msg(private_key) -> str:
     d: int = private_key[0]
     n: int = private_key[1]
 
-    decrypt: list[str] = []
-    encrypt: list[int] = [int(x) for x in msg.split()]
-    for cyphtertext in encrypt:
-        m: int = (cyphtertext**d) % n
-        decrypt.append(chr(m))
+    decrypted_chunks: list[bytes] = []
+    encrypted_chunks: list[int] = [int(x) for x in msg.split()]
+    for ciphertext in encrypted_chunks:
+        decrypted_int = pow(ciphertext, d, n)
+        chunk_size = (decrypted_int.bit_length() + 7) // 8
+        decrypted_chunk = decrypted_int.to_bytes(chunk_size, byteorder='big')
+        decrypted_chunks.append(decrypted_chunk)
 
-    decrypted_msg: str = "".join(decrypt)
+    # Join the decrypted byte chunks
+    decrypted_bytes = b''.join(decrypted_chunks)
+    decrypted_msg: str = decrypted_bytes.decode('utf-8')
 
     return decrypted_msg
 
@@ -290,21 +309,6 @@ def print_ints(p, q, public_key, private_key) -> None:
     print(f' Public key [e, n]: {public_key}')
     print(f'Private key [d, n]: {private_key}')
     print()
-
-
-def cli_old() -> tuple[str, str]:
-    # If there are three arguments (first one is the script name), then
-    # the first is set to an empty string and the second is taken as a file name.
-    if len(sys.argv) == 3:
-        msg = ""
-        filename = sys.argv[2]
-    elif len(sys.argv) == 2:
-        msg = sys.argv[1]
-        filename = ''
-    else:
-        msg, filename = '', ''
-
-    return msg, filename
 
 
 def main(source: str, encrypt: str, decrypt: str) -> None:
