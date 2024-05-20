@@ -31,24 +31,24 @@ from icecream import ic
 def modinv(a: int, b: int) -> int:
     """
     Returns the modular inverse of a mod b.
-    Pre: a < b and gcd(a, b) = 1
+    Requirements: a < b and gcd(a, b) = 1
 
     Parameters
     ----------
     a : int -- any integer
-    b : int -- any integer
+    b : int -- any integer larger than b
 
     Returns
     -------
-    int -- the modular inverse of a mod b
+    int -- the modular inverse of "a mod b"
 
     Examples
     --------
     test_cases = [
-         (3, 11) -> 4,  therefore   3 * 4 % 11  == 1
+         (3, 11) ->  4, therefore   3 *  4 % 11 == 1
         (10, 17) -> 12, therefore  10 * 12 % 17 == 1
-          (2, 5) -> 3,  therefore   2 * 3 % 5   == 1
-         (7, 13) -> 2,  therefore   7 * 2 % 13  == 1
+          (2, 5) ->  3, therefore   2 *  3 %  5 == 1
+         (7, 13) ->  2, therefore   7 *  2 % 13 == 1
          (8, 29) -> 11, therefore   8 * 11 % 29 == 1
         ]
     """
@@ -66,14 +66,35 @@ def modinv(a: int, b: int) -> int:
 
 def coprime(a: int, b: int) -> bool:
     """
-    Returns True if "gcd(a, b) == 1", i.e. if "a" and "b" are coprime
+    Returns True if "gcd(a, b) == 1", i.e. if "a" and "b" are coprime.Two numbers are coprime if their GCD is 1 and they share no common factors other than 1.
+
+    Parameters
+    ----------
+    a : int -- first integer
+    b : int -- second integer
+
+    Returns
+    -------
+    bool -- True if a and b are coprime
+
+    Examples
+    --------
+    8 and 9 are coprime because their only common factor is 1. However, 6 and 9 are not coprime because they share the common factor 3.
     """
     return math.gcd(a, b) == 1
 
 
 def is_prime(n: int) -> bool:
     """
-    Returns True if n is a prime number.
+    Returns True if "n" is a prime number. A prime number is a positive integer greater than 1 that has no positive integer divisors other than 1 and itself.
+
+    Parameters
+    ----------
+    n : int -- any integer
+
+    Returns
+    -------
+    bool -- True if "n" is a prime number.
     """
     if n <= 1:
         return False
@@ -87,20 +108,24 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
     """
     There are two sub-functions in this function. One [get_ints()] generates the integers needed to construct the keys and the other [generate_public_private()] generates the keys themselves.
 
-    Returns:
+    p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
+
+    Returns
+    -------
+    tuple[list[int], int, int, list[int]] -- public_key, p, q, private_key
         public_key [list]: [e, n]
         p (int): used to create n and T
         q (int): used to create n and T
         private_key [list]: [d, n]
-
-    p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
     """
 
     def generate_public_private() -> tuple[list[int], list[int], int, int]:
         """
-        This function generates p, q, n, d, and e.
+        This function generates p, q, n, d, and e. p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
 
-        Returns:
+        Returns
+        -------
+        tuple[list[int], list[int], int, int] -- public_key, private_key, p, q
             public_key = [e, n]
             private_key = [d, n]
             p, q for debugging purposes only
@@ -117,16 +142,17 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
     def get_ints() -> tuple[int, int, int, int, int]:
         """
         This function generates the integers needed to construct the public and private keys, namely:
-        p, q: Two random integers, the bigger the better, both primes
-        n: p * q
-        T: (p-1) * (q-1)
-        e: prime number, where e and T are coprime; this is the public_key
-        d: the modular inverse of e and T; this is the private_key
+                p, q: Two random integers, the bigger the better, both primes
+                n: p * q
+                T: (p-1) * (q-1)
+                e: prime number, where e and T are coprime; this is the public_key
+                d: the modular inverse of e and T; this is the private_key
 
         Integer values are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
 
-        Returns:
-            p, q, e, d, n
+        Returns
+        -------
+        tuple[int, int, int, int, int] -- p, q, e, d, n
         """
 
         n = 100
@@ -168,22 +194,29 @@ def encrypt(msg, public_key) -> str:
     """
     Using the public_key [e, n], encrypt the text in "msg".
 
-    Args:
-        msg (str): the text to decrypt
-        public_key [list]: e, n
+    Parameters
+    ----------
+    msg : str -- the text to decrypt
+    public_key : list[int] -- e, n
 
-    Returns:
-        str: the encrypted test: a single string that contains string versions of integers, where each "integer" represents one character in "msg"
+    Returns
+    -------
+    str -- encrypted "msg"... a single string that contains string versions of integers, where each "integer" represents one character in "msg"
+
+    Example
+    -------
+    "hello" -> 437 730 811 811 1591
     """
-    e = public_key[0]
-    n = public_key[1]
+
+    e: int = public_key[0]
+    n: int = public_key[1]
 
     e_msg = []
     for s in msg:
-        cyphtertext = (ord(s)**e) % n
+        cyphtertext: int = (ord(s)**e) % n
         e_msg.append(str(cyphtertext))
 
-    encrypted_msg = " ".join(e_msg)
+    encrypted_msg: str = " ".join(e_msg)
 
     return encrypted_msg
 
@@ -193,11 +226,22 @@ def decrypt(msg, private_key) -> str:
     Decrypt "msg" using d, n in private_key.
 
     Args:
-        msg (str): see encrypt() for description
-        private_key (list): d, n
 
     Returns:
         str: the decrypted text, as a single string
+
+    Parameters
+    ----------
+    msg : str -- see encrypt() for description
+    private_key : list[int] -- d, n
+
+    Returns
+    -------
+    str -- decrypted "msg"...
+
+    Examples
+    --------
+
     """
     d = private_key[0]
     n = private_key[1]
