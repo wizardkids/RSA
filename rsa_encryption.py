@@ -26,16 +26,27 @@ from icecream import ic
 
 VERSION = "0.1"
 
+
 @click.command(help="Encrypt or decrypt a message using RSA encryption. The message to encrypt can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
 @click.option("-e", "--encrypt", type=str, help="Encrypt the accompanying message/file using RSA public key encryption.")
 @click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message.")
 @click.version_option(version=VERSION)
 def cli(encrypt, decrypt) -> None:
+    """
+    Main entry point for the command-line interface.
+
+    Parameters
+    ----------
+    encrypt : str -- if included, encrypt the accompanying message/file using RSA public key encryption.
+    decrypt : str -- if flag is set, decrypt the encrypted message.
+    """
 
     # ic(source)
     # ic(encrypt)
     # ic(decrypt)
+
     main(encrypt, decrypt)
+
 
 def modinv(a: int, b: int) -> int:
     """
@@ -347,7 +358,7 @@ def main(encrypt: str, decrypt: str) -> None:
     elif decrypt:
         # To decrypt, get the private key from file.
         with open("private_key.txt", 'r', encoding='utf-8') as f:
-            private_key: list[int]= json.load(f)
+            private_key: list[int] = json.load(f)
 
         decrypted_msg: str = decrypt_msg(private_key)
         with open('decrypted.txt', 'w', encoding='utf-8') as f:
