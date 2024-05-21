@@ -5,7 +5,6 @@
         Date: 2023-04-27
  Description: Use RSA public/private key encryption to encrypt/decrypt text.
 
-
 PUBLIC KEY CRYPTOGRAPHY IN SUMMARY:
 -- A public key is used to encrypt and a separate, different private key to decrypt the message.
 -- Each party involved generates a key pair.
