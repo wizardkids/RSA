@@ -26,9 +26,9 @@ from icecream import ic
 VERSION = "0.1"
 
 
-@click.command(help="Encrypt or decrypt a message using RSA encryption. The message to encrypt can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
-@click.option("-e", "--encrypt", type=str, help="Encrypt the accompanying message/file using RSA public key encryption.")
-@click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message.")
+@click.command(help="Encrypt or decrypt [TEXT] using RSA encryption. [TEXT] can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
+@click.option("-e", "--encrypt", type=click.Path(exists=True), help="Encrypt the accompanying message/file using RSA public key encryption.")
+@click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message in \"encrypted.txt\".")
 @click.version_option(version=VERSION)
 def cli(encrypt, decrypt) -> None:
     """
@@ -40,9 +40,8 @@ def cli(encrypt, decrypt) -> None:
     decrypt : str -- if flag is set, decrypt the encrypted message.
     """
 
-    # ic(source)
-    # ic(encrypt)
-    # ic(decrypt)
+    ic(encrypt)
+    ic(decrypt)
 
     main(encrypt, decrypt)
 
