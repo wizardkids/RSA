@@ -27,23 +27,33 @@ VERSION = "0.2"
 
 
 @click.command(help="Encrypt or decrypt [TEXT] using RSA encryption. [TEXT] can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
-@click.option("-e", "--encrypt", type=click.Path(exists=True), help="Encrypt the accompanying message/file using RSA public key encryption.")
-@click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message in \"encrypted.txt\".")
+# @click.option("-e", "--encrypt", type=click.Path(exists=True), help="Encrypt the accompanying message/file using RSA public key encryption.")
+# @click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message in \"encrypted.txt\".")
+# @click.version_option(version=VERSION)
+@click.argument("message", type=str, required=False)
+@click.option("-f", "--file", type=click.Path(exists=True), help='File to encrypt.')
+@click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
+@click.option("-k", "--keys", is_flag=True, default=False, help="Print the keys.")
+@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a user.")
 @click.version_option(version=VERSION)
-def cli(encrypt, decrypt) -> None:
+def cli(message, file, decrypt, keys, generate) -> None:
     """
     Main entry point for the command-line interface.
 
     Parameters
     ----------
-    encrypt : str -- if included, encrypt the accompanying message/file using RSA public key encryption.
-    decrypt : str -- if flag is set, decrypt the encrypted message.
+    message : str -- message to encrypt
+    file : Path -- filename containing text to encrypt
+    decrypt : str -- flag to decrypt "encoded.json"
+    keys : str -- flag to print public and private keys
+    generate: str -- flag to generate a private key
     """
 
-    ic(encrypt)
-    ic(decrypt)
+    print()
+    ic(message, file, decrypt, keys, generate)
+    print()
 
-    main(encrypt, decrypt)
+    main(message, file, decrypt, keys, generate)
 
 
 def modinv(a: int, b: int) -> int:
@@ -316,26 +326,28 @@ def print_ints(p, q, public_key, private_key) -> None:
     print()
 
 
-def main(encrypt: str, decrypt: str) -> None:
+def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
     """
     Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
 
     Parameters
     ----------
-    encrypt : str -- If the -e flag is set, "encrypt" is the message/file to encrypt.
-    decrypt : str -- if this flag is True, decrypt the contents of "encrypted.txt".
+    message : str -- message to encrypt
+    file : Path -- filename containing text to encrypt
+    decrypt : str -- flag to decrypt "encoded.json"
+    keys : str -- flag to print public and private keys
+    generate: str -- flag to generate a private key
     """
 
-    # Determine if "encrypt" is a filename or not. A TypeError can occur if Path(source) raises an exception.
-    try:
-        p = Path(encrypt)
+    # If --file was used, click will raise an exception if "file" can't be found.
+    if file:
+        p = Path(file)
         if p.exists():
             with open(p, 'r', encoding='utf-8') as f:
-                msg = f.read()
+                message: str = f.read()
         else:
-            msg: str = encrypt
-    except TypeError:
-        msg: str = encrypt
+            print(f'Could not find file {file}')
+
 
     # generate_keys() takes no arguments but returns public_key [e, n], p, q, and private_key [d, n]
     # p and q are only required for debugging (see print_ints() to print the details)
@@ -382,4 +394,9 @@ if __name__ == '__main__':
     msg3 = "In the café, the bánh mì sandwich is a popular choice among the regulars. The flaky baguette, stuffed with savory grilled pork, pickled daikon and carrots, fresh cilantro, and a dollop of sriracha mayo, is the perfect lunchtime indulgence. As I sipped my matcha latte, I noticed the barista's shirt had a cute ねこ (neko, or cat) graphic on it. It reminded me of the time I visited Tokyo and saw the famous 東京タワー (Tokyo Tower) at night, aglow with colorful lights. The world is full of unique and beautiful symbols, and Unicode makes it possible to express them all in one cohesive language."
 
     print()
-    cli()
+    # Since the --file argument takes a Path, we need a try...except block.
+    try:
+        cli()
+    except (SystemExit, FileNotFoundError):
+        print(f'Could not find or open specified file.')
+        exit()
