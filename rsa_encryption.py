@@ -23,7 +23,7 @@ from random import randint
 import click
 from icecream import ic
 
-VERSION = "0.1"
+VERSION = "0.2"
 
 
 @click.command(help="Encrypt or decrypt [TEXT] using RSA encryption. [TEXT] can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
