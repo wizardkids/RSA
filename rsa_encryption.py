@@ -266,7 +266,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
         if user_name:
             keys = {"public_key": [e, n], "private_key": [d, n], "p": p, "q": q}
             filename: str = user_name.strip() + ".json"
-            with open(filename, 'w') as f:
+            with open(filename, 'w', encoding="utf-8") as f:
                 json.dump(keys, f)
         else:
             print("No recipient name entered.")
@@ -338,6 +338,9 @@ def print_ints(p, q, public_key, private_key) -> None:
 
 
 def print_keys() -> None:
+    """
+    Print the public and private keys for a recipient.
+    """
     recipient: str = input("Keys for which recipient: ").lower()
     keys = get_keys(recipient)
 
@@ -351,9 +354,20 @@ def print_keys() -> None:
 
 
 def get_keys(recipient: str) -> dict:
+    """
+    Retrieve the keys for the provided recipient from that recipient's .json file.
+
+    Parameters
+    ----------
+    recipient : str -- name of the user (recipient)
+
+    Returns
+    -------
+    dict -- dictioary containing public and private keys
+    """
     filename: str = recipient.strip() + ".json"
     try:
-        with open(filename, 'r') as f:
+        with open(filename, 'r', encoding="utf-8") as f:
             keys = json.load(f)
     except FileNotFoundError:
         print(f'\nKeys for "{recipient}" do not exist.')
