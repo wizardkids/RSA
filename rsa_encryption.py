@@ -31,7 +31,7 @@ VERSION = "0.2"
 # @click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message in \"encrypted.txt\".")
 # @click.version_option(version=VERSION)
 @click.argument("message", type=str, required=False)
-@click.option("-f", "--file", type=click.Path(exists=True), help='File to encrypt.')
+@click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
 @click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
 @click.option("-k", "--keys", is_flag=True, default=False, help="Print the keys.")
 @click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a user.")
@@ -346,12 +346,13 @@ def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
             with open(p, 'r', encoding='utf-8') as f:
                 message: str = f.read()
         else:
-            print(f'Could not find file {file}')
-
+            print(f'Could not find file "{file}"')
+            exit()
 
     # generate_keys() takes no arguments but returns public_key [e, n], p, q, and private_key [d, n]
     # p and q are only required for debugging (see print_ints() to print the details)
     public_key, p, q, private_key = generate_keys()
+
 
     if encrypt:
         encrypted_msg: str = encrypt_msg(msg, public_key)
@@ -394,9 +395,4 @@ if __name__ == '__main__':
     msg3 = "In the café, the bánh mì sandwich is a popular choice among the regulars. The flaky baguette, stuffed with savory grilled pork, pickled daikon and carrots, fresh cilantro, and a dollop of sriracha mayo, is the perfect lunchtime indulgence. As I sipped my matcha latte, I noticed the barista's shirt had a cute ねこ (neko, or cat) graphic on it. It reminded me of the time I visited Tokyo and saw the famous 東京タワー (Tokyo Tower) at night, aglow with colorful lights. The world is full of unique and beautiful symbols, and Unicode makes it possible to express them all in one cohesive language."
 
     print()
-    # Since the --file argument takes a Path, we need a try...except block.
-    try:
-        cli()
-    except (SystemExit, FileNotFoundError):
-        print(f'Could not find or open specified file.')
-        exit()
+    cli()
