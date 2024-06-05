@@ -40,14 +40,13 @@ def cli(message, file, printkeys, generate) -> None:
     ----------
     message : str -- message to encrypt
     file : Path -- filename containing text to encrypt
-    decrypt : str -- flag to decrypt "encoded.json"
-    keys : str -- flag to print public and private keys
+    printkeys : str -- flag to print public and private keys
     generate: str -- flag to generate a private key
     """
 
-    print()
-    ic(message, file, printkeys, generate)
-    print()
+    # print()
+    # ic(message, file, printkeys, generate)
+    # print()
 
     main(message, file, printkeys, generate)
 
@@ -365,14 +364,13 @@ def get_keys(recipient: str) -> dict:
 
 def main(msg: str, file: str, printkeys: str, generate: str) -> None:
     """
-    Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
+    Organizing function for this CLI. If a "msg" or a "file" is included, then encrypt the text. If no arguments are provided, then decrypt the contents of "encrypted.txt".
 
     Parameters
     ----------
     message : str -- message to encrypt
     file : Path -- filename containing text to encrypt
-    decrypt : str -- flag to decrypt "encoded.json"
-    keys : str -- flag to print public and private keys
+    printkeys : str -- flag to print public and private keys
     generate: str -- flag to generate a private key
     """
 
