@@ -26,12 +26,12 @@ from icecream import ic
 VERSION = "0.2"
 
 
-@click.command(help="Encrypt or decrypt [MESSAGE] or [PATH] using RSA encryption. [MESSAGE] must be a quote-delimited string.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified user\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified user")
+@click.command(help="Encrypt or decrypt [MESSAGE] or [PATH] using RSA encryption. [MESSAGE] must be a quote-delimited string.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified recipient\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified recipient")
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
 @click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
-@click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys.")
-@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a user.")
+@click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys for a specified recipient.")
+@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a recipient.")
 @click.version_option(version=VERSION)
 def cli(message, file, decrypt, printkeys, generate) -> None:
     """
@@ -46,9 +46,9 @@ def cli(message, file, decrypt, printkeys, generate) -> None:
     generate: str -- flag to generate a private key
     """
 
-    # print()
-    # ic(message, file, decrypt, printkeys, generate)
-    # print()
+    print()
+    ic(message, file, decrypt, printkeys, generate)
+    print()
 
     if message:
         decrypt: bool = False
@@ -183,7 +183,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
             with open(filename, 'w') as f:
                 json.dump(keys, f)
         else:
-            print("No user name entered.")
+            print("No recipient name entered.")
             exit()
 
         return [e, n], [d, n], p, q
@@ -349,6 +349,14 @@ def print_ints(p, q, public_key, private_key) -> None:
     print()
 
 
+def print_keys() -> None:
+    recipient: str = input("Who is the recipient of this message/file: ").lower()
+    keys = get_keys(recipient)
+
+    for k, v in keys.items():
+        print(f'{k}: {v}')
+
+
 def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> None:
     """
     Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
@@ -364,9 +372,13 @@ def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> No
 
     # generate_keys() takes no arguments but creates a public_key [e, n], p, q, and private_key [d, n], then saves them in a json file.
     # p and q are only required for debugging (see print_ints() to print the details)
-    # ! This option is used ONLY to generate keys for a specific user.
+    # ! This option is used ONLY to generate keys for a specific recipient.
     if generate:
         generate_keys()
+        exit()
+
+    if printkeys:
+        print_keys()
         exit()
 
     # Make sure we can find the file and put its contents into "message".
@@ -412,8 +424,13 @@ def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> No
 
 def get_keys(recipient: str) -> dict:
     filename: str = recipient.strip() + ".json"
-    with open(filename, 'r') as f:
-        keys = json.load(f)
+    try:
+        with open(filename, 'r') as f:
+            keys = json.load(f)
+    except FileNotFoundError:
+        print(f'\nKeys for "{recipient}" do not exist.')
+        print("Generate keys using --generate option.")
+        exit()
 
     return keys
 
