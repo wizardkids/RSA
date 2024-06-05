@@ -341,10 +341,13 @@ def print_keys() -> None:
     recipient: str = input("Keys for which recipient: ").lower()
     keys = get_keys(recipient)
 
-    print(f' Public key: {keys['public_key']}')
-    print(f'Private key: {keys['private_key']}')
-    print(f'          p: {keys['p']}')
-    print(f'          q: {keys['q']}')
+    print(f' Public key: {keys["public_key"]}')
+    print(f'Private key: {keys["private_key"]}')
+
+    # These two variables are included in the json file, but are only used
+    # for debugging, so I'm not printing them here.
+    # print(f'          p: {keys["p"]}')
+    # print(f'          q: {keys["q"]}')
 
 
 def get_keys(recipient: str) -> dict:
