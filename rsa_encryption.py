@@ -49,14 +49,6 @@ def cli(message, file, printkeys, generate) -> None:
     ic(message, file, printkeys, generate)
     print()
 
-    if message:
-        file = ""
-    elif file:
-        message = ""
-    else:
-        message = ""
-        file = ""
-
     main(message, file, printkeys, generate)
 
 
@@ -347,11 +339,13 @@ def print_ints(p, q, public_key, private_key) -> None:
 
 
 def print_keys() -> None:
-    recipient: str = input("Who is the recipient of this message/file: ").lower()
+    recipient: str = input("Keys for which recipient: ").lower()
     keys = get_keys(recipient)
 
-    for k, v in keys.items():
-        print(f'{k}: {v}')
+    print(f' Public key: {keys['public_key']}')
+    print(f'Private key: {keys['private_key']}')
+    print(f'          p: {keys['p']}')
+    print(f'          q: {keys['q']}')
 
 
 def get_keys(recipient: str) -> dict:
