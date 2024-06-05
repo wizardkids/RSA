@@ -26,17 +26,14 @@ from icecream import ic
 VERSION = "0.2"
 
 
-@click.command(help="Encrypt or decrypt [TEXT] using RSA encryption. [TEXT] can be either a quote-delimited string or a filename.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of the file by that name is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py -e \"The troops roll out at midnight.\"\n\nrsa_encryption.py -d")
-# @click.option("-e", "--encrypt", type=click.Path(exists=True), help="Encrypt the accompanying message/file using RSA public key encryption.")
-# @click.option("-d", "--decrypt", is_flag=True, help="Decrypt the encrypted message in \"encrypted.txt\".")
-# @click.version_option(version=VERSION)
+@click.command(help="Encrypt or decrypt [MESSAGE] or [PATH] using RSA encryption. [MESSAGE] must be a quote-delimited string.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified user\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified user")
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
 @click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
-@click.option("-k", "--keys", is_flag=True, default=False, help="Print the keys.")
+@click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys.")
 @click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a user.")
 @click.version_option(version=VERSION)
-def cli(message, file, decrypt, keys, generate) -> None:
+def cli(message, file, decrypt, printkeys, generate) -> None:
     """
     Main entry point for the command-line interface.
 
@@ -49,11 +46,22 @@ def cli(message, file, decrypt, keys, generate) -> None:
     generate: str -- flag to generate a private key
     """
 
-    print()
-    ic(message, file, decrypt, keys, generate)
-    print()
+    # print()
+    # ic(message, file, decrypt, printkeys, generate)
+    # print()
 
-    main(message, file, decrypt, keys, generate)
+    if message:
+        decrypt: bool = False
+        file = ""
+    elif file:
+        decrypt: bool = False
+        message = ""
+    else:
+        message = ""
+        file = ""
+        decrypt = True
+
+    main(message, file, decrypt, printkeys, generate)
 
 
 def modinv(a: int, b: int) -> int:
@@ -166,7 +174,18 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
         # CODENOTE:
         # We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
 
-        # Here, we return the public_key, private_key, p, and q:
+        # Here, we save the public_key, private_key, p, and q:
+        print("The name you enter will be the filename for the\nfile holding the keys.")
+        user_name: str = input("To whom do these keys belong: ").lower()
+        if user_name:
+            keys = {"public_key": [e, n], "private_key": [d, n], "p": p, "q": q}
+            filename: str = user_name.strip() + ".json"
+            with open(filename, 'w') as f:
+                json.dump(keys, f)
+        else:
+            print("No user name entered.")
+            exit()
+
         return [e, n], [d, n], p, q
 
     def get_ints() -> tuple[int, int, int, int, int]:
@@ -308,8 +327,12 @@ def decrypt_msg(private_key) -> str:
         decrypted_chunks.append(decrypted_chunk)
 
     # Join the decrypted byte chunks
-    decrypted_bytes = b''.join(decrypted_chunks)
-    decrypted_msg: str = decrypted_bytes.decode('utf-8')
+    try:
+        decrypted_bytes = b''.join(decrypted_chunks)
+        decrypted_msg: str = decrypted_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        print("Access denied. Cannot decrypt with the provided key.")
+        exit()
 
     return decrypted_msg
 
@@ -326,7 +349,7 @@ def print_ints(p, q, public_key, private_key) -> None:
     print()
 
 
-def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
+def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> None:
     """
     Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
 
@@ -339,7 +362,14 @@ def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
     generate: str -- flag to generate a private key
     """
 
-    # If --file was used, click will raise an exception if "file" can't be found.
+    # generate_keys() takes no arguments but creates a public_key [e, n], p, q, and private_key [d, n], then saves them in a json file.
+    # p and q are only required for debugging (see print_ints() to print the details)
+    # ! This option is used ONLY to generate keys for a specific user.
+    if generate:
+        generate_keys()
+        exit()
+
+    # Make sure we can find the file and put its contents into "message".
     if file:
         p = Path(file)
         if p.exists():
@@ -348,18 +378,19 @@ def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
         else:
             print(f'Could not find file "{file}"')
             exit()
+    elif msg:
+        message = msg
+    else:
+        message = msg
 
-    # generate_keys() takes no arguments but returns public_key [e, n], p, q, and private_key [d, n]
-    # p and q are only required for debugging (see print_ints() to print the details)
-    public_key, p, q, private_key = generate_keys()
+    if message:
+        recipient: str = input("Who will receive this message/file: ").lower()
+        keys = get_keys(recipient)
+        encrypted_msg: str = encrypt_msg(message, keys['public_key'])
 
-
-    if encrypt:
-        encrypted_msg: str = encrypt_msg(msg, public_key)
-
-        # To decrypt, we need the private key, so save it in a file.
-        with open("private_key.txt", 'w', encoding='utf-8') as f:
-            json.dump(private_key, f)
+        # # To decrypt, we need the private key, so save it in a file.
+        # with open("private_key.txt", 'w', encoding='utf-8') as f:
+        #     json.dump(private_key, f)
 
         with open('encrypted.txt', 'w', encoding="utf-8") as f:
             f.write(encrypted_msg)
@@ -367,11 +398,9 @@ def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
         print('Encrypted message saved as "encrypted.txt".')
 
     elif decrypt:
-        # To decrypt, get the private key from file.
-        with open("private_key.txt", 'r', encoding='utf-8') as f:
-            private_key: list[int] = json.load(f)
-
-        decrypted_msg: str = decrypt_msg(private_key)
+        recipient: str = input("Who is the recipient of this message/file: ").lower()
+        keys = get_keys(recipient)
+        decrypted_msg: str = decrypt_msg(keys['private_key'])
         with open('decrypted.txt', 'w', encoding='utf-8') as f:
             f.write(decrypted_msg)
 
@@ -379,6 +408,15 @@ def main(msg: str, file: str, decrypt: str, keys: str, generate: str) -> None:
 
     else:
         print('No option specified.\nPlease specify either "-e | --encrypt" or "-d | --decrypt".')
+
+
+def get_keys(recipient: str) -> dict:
+    filename: str = recipient.strip() + ".json"
+    with open(filename, 'r') as f:
+        keys = json.load(f)
+
+    return keys
+
 
 
 if __name__ == '__main__':
