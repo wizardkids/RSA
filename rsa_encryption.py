@@ -29,11 +29,10 @@ VERSION = "0.2"
 @click.command(help="Encrypt or decrypt [MESSAGE] or [PATH] using RSA encryption. [MESSAGE] must be a quote-delimited string.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified recipient\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified recipient")
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
-@click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
 @click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys for a specified recipient.")
 @click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a recipient.")
 @click.version_option(version=VERSION)
-def cli(message, file, decrypt, printkeys, generate) -> None:
+def cli(message, file, printkeys, generate) -> None:
     """
     Main entry point for the command-line interface.
 
@@ -47,21 +46,18 @@ def cli(message, file, decrypt, printkeys, generate) -> None:
     """
 
     print()
-    ic(message, file, decrypt, printkeys, generate)
+    ic(message, file, printkeys, generate)
     print()
 
     if message:
-        decrypt: bool = False
         file = ""
     elif file:
-        decrypt: bool = False
         message = ""
     else:
         message = ""
         file = ""
-        decrypt = True
 
-    main(message, file, decrypt, printkeys, generate)
+    main(message, file, printkeys, generate)
 
 
 def encrypt_msg(msg, public_key) -> str:
@@ -373,7 +369,7 @@ def get_keys(recipient: str) -> dict:
 
 # ==== END UTILITY FUNCTIONS =================================================
 
-def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> None:
+def main(msg: str, file: str, printkeys: str, generate: str) -> None:
     """
     Organizing function for this CLI. If the -e flag is set, encrypt the message/file in "encrypt". If the -d flag is set, decrypt the contents of "encrypted.txt".
 
@@ -411,21 +407,18 @@ def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> No
     else:
         message = msg
 
+    # If there's a message, encrypt it, otherwise assume we want to decrypt "encrypted.txt"
     if message:
         recipient: str = input("Who will receive this message/file: ").lower()
         keys = get_keys(recipient)
         encrypted_msg: str = encrypt_msg(message, keys['public_key'])
-
-        # # To decrypt, we need the private key, so save it in a file.
-        # with open("private_key.txt", 'w', encoding='utf-8') as f:
-        #     json.dump(private_key, f)
 
         with open('encrypted.txt', 'w', encoding="utf-8") as f:
             f.write(encrypted_msg)
 
         print('Encrypted message saved as "encrypted.txt".')
 
-    elif decrypt:
+    else:
         recipient: str = input("Who is the recipient of this message/file: ").lower()
         keys = get_keys(recipient)
         decrypted_msg: str = decrypt_msg(keys['private_key'])
@@ -433,9 +426,6 @@ def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> No
             f.write(decrypted_msg)
 
         print('Decrypted message saved as "decrypted.txt"')
-
-    else:
-        print('No option specified.\nPlease specify either "-e | --encrypt" or "-d | --decrypt".')
 
 
 if __name__ == '__main__':
