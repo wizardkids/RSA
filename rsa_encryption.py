@@ -64,6 +64,105 @@ def cli(message, file, decrypt, printkeys, generate) -> None:
     main(message, file, decrypt, printkeys, generate)
 
 
+def encrypt_msg(msg, public_key) -> str:
+    """
+    Using the public_key [e, n], encrypt the text in "msg". This function returns a string that will be saved to "encrypted.txt".
+
+    CODENOTE:
+        The for... loop was originally:
+            e_msg = []
+            for s in msg:
+                cyphtertext = (ord(s)**e) % n
+                e_msg.append(str(cyphtertext))
+
+        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to convert the string "msg" to bytes and encrypt the message in chunks.
+
+    Parameters
+    ----------
+    public_key : list[int] -- e, n
+
+    Returns
+    -------
+    str -- encrypted "msg"... a single string that contains string versions of integers, where each "integer" represents one character in "msg"
+
+    Example
+    -------
+    "hello" -> 437 730 811 811 1591
+    """
+
+    e: int = public_key[0]
+    n: int = public_key[1]
+
+    chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
+
+    # Encode the message to bytes.
+    message_bytes: bytes = msg.encode('utf-8')
+
+    # Convert the bytes to integers for encryption.
+    e_msg: list[str] = []
+    for i in range(0, len(message_bytes), chunk_size):
+        chunk: bytes = message_bytes[i:i + chunk_size]
+        chunk_int: int = int.from_bytes(chunk, byteorder='big')
+        ciphertext: str = str(pow(chunk_int, e, n))
+        e_msg.append(ciphertext)
+
+    encrypted_msg: str = " ".join(e_msg)
+
+    return encrypted_msg
+
+
+def decrypt_msg(private_key) -> str:
+    """
+    Decrypt the contents of "encrypted.txt" using "d" & "n" in "private_key".
+
+    CODENOTE:
+        Originally, the for... loop was:
+            for cyphertext in encrypt:
+                m: int = (cyphtertext**d) % n
+                decrypt.append(chr(m))
+
+        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks (and the encryption process had to encrypt bytes in chunks).
+
+    Parameters
+    ----------
+    private_key : list[int] -- d, n
+
+    Returns
+    -------
+    str -- decrypted "msg"...
+    """
+
+    p = Path("encrypted.txt")
+    if p.exists():
+        with open(p, "r", encoding='utf-8') as f:
+            msg = f.read()
+    else:
+        print("\nencrypted.txt does not exist.")
+        exit()
+
+    d: int = private_key[0]
+    n: int = private_key[1]
+
+    decrypted_chunks: list[bytes] = []
+    encrypted_chunks: list[int] = [int(x) for x in msg.split()]
+    for ciphertext in encrypted_chunks:
+        decrypted_int: int = pow(ciphertext, d, n)
+        chunk_size: int = (decrypted_int.bit_length() + 7) // 8
+        decrypted_chunk: bytes = decrypted_int.to_bytes(chunk_size, byteorder='big')
+        decrypted_chunks.append(decrypted_chunk)
+
+    # Join the decrypted byte chunks
+    try:
+        decrypted_bytes = b''.join(decrypted_chunks)
+        decrypted_msg: str = decrypted_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        print("Access denied. Cannot decrypt with the provided key.")
+        exit()
+
+    return decrypted_msg
+
+
+# ==== UTILITY FUNCTIONS =====================================================
 def modinv(a: int, b: int) -> int:
     """
     Returns the modular inverse of a mod b.
@@ -239,104 +338,6 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
     return public_key, p, q, private_key
 
 
-def encrypt_msg(msg, public_key) -> str:
-    """
-    Using the public_key [e, n], encrypt the text in "msg". This function returns a string that will be saved to "encrypted.txt".
-
-    CODENOTE:
-        The for... loop was originally:
-            e_msg = []
-            for s in msg:
-                cyphtertext = (ord(s)**e) % n
-                e_msg.append(str(cyphtertext))
-
-        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to convert the string "msg" to bytes and encrypt the message in chunks.
-
-    Parameters
-    ----------
-    public_key : list[int] -- e, n
-
-    Returns
-    -------
-    str -- encrypted "msg"... a single string that contains string versions of integers, where each "integer" represents one character in "msg"
-
-    Example
-    -------
-    "hello" -> 437 730 811 811 1591
-    """
-
-    e: int = public_key[0]
-    n: int = public_key[1]
-
-    chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
-
-    # Encode the message to bytes.
-    message_bytes: bytes = msg.encode('utf-8')
-
-    # Convert the bytes to integers for encryption.
-    e_msg: list[str] = []
-    for i in range(0, len(message_bytes), chunk_size):
-        chunk: bytes = message_bytes[i:i + chunk_size]
-        chunk_int: int = int.from_bytes(chunk, byteorder='big')
-        ciphertext: str = str(pow(chunk_int, e, n))
-        e_msg.append(ciphertext)
-
-    encrypted_msg: str = " ".join(e_msg)
-
-    return encrypted_msg
-
-
-def decrypt_msg(private_key) -> str:
-    """
-    Decrypt the contents of "encrypted.txt" using "d" & "n" in "private_key".
-
-    CODENOTE:
-        Originally, the for... loop was:
-            for cyphertext in encrypt:
-                m: int = (cyphtertext**d) % n
-                decrypt.append(chr(m))
-
-        This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks (and the encryption process had to encrypt bytes in chunks).
-
-    Parameters
-    ----------
-    private_key : list[int] -- d, n
-
-    Returns
-    -------
-    str -- decrypted "msg"...
-    """
-
-    p = Path("encrypted.txt")
-    if p.exists():
-        with open(p, "r", encoding='utf-8') as f:
-            msg = f.read()
-    else:
-        print("\nencrypted.txt does not exist.")
-        exit()
-
-    d: int = private_key[0]
-    n: int = private_key[1]
-
-    decrypted_chunks: list[bytes] = []
-    encrypted_chunks: list[int] = [int(x) for x in msg.split()]
-    for ciphertext in encrypted_chunks:
-        decrypted_int: int = pow(ciphertext, d, n)
-        chunk_size: int = (decrypted_int.bit_length() + 7) // 8
-        decrypted_chunk: bytes = decrypted_int.to_bytes(chunk_size, byteorder='big')
-        decrypted_chunks.append(decrypted_chunk)
-
-    # Join the decrypted byte chunks
-    try:
-        decrypted_bytes = b''.join(decrypted_chunks)
-        decrypted_msg: str = decrypted_bytes.decode('utf-8')
-    except UnicodeDecodeError:
-        print("Access denied. Cannot decrypt with the provided key.")
-        exit()
-
-    return decrypted_msg
-
-
 def print_ints(p, q, public_key, private_key) -> None:
     """
     Used only for debugging purposes. Prints p, q, n, T, e, d, public_key and private_key
@@ -356,6 +357,21 @@ def print_keys() -> None:
     for k, v in keys.items():
         print(f'{k}: {v}')
 
+
+def get_keys(recipient: str) -> dict:
+    filename: str = recipient.strip() + ".json"
+    try:
+        with open(filename, 'r') as f:
+            keys = json.load(f)
+    except FileNotFoundError:
+        print(f'\nKeys for "{recipient}" do not exist.')
+        print("Generate keys using --generate option.")
+        exit()
+
+    return keys
+
+
+# ==== END UTILITY FUNCTIONS =================================================
 
 def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> None:
     """
@@ -420,20 +436,6 @@ def main(msg: str, file: str, decrypt: str, printkeys: str, generate: str) -> No
 
     else:
         print('No option specified.\nPlease specify either "-e | --encrypt" or "-d | --decrypt".')
-
-
-def get_keys(recipient: str) -> dict:
-    filename: str = recipient.strip() + ".json"
-    try:
-        with open(filename, 'r') as f:
-            keys = json.load(f)
-    except FileNotFoundError:
-        print(f'\nKeys for "{recipient}" do not exist.')
-        print("Generate keys using --generate option.")
-        exit()
-
-    return keys
-
 
 
 if __name__ == '__main__':
