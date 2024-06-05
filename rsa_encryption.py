@@ -122,7 +122,7 @@ def decrypt_msg(private_key) -> str:
     p = Path("encrypted.txt")
     if p.exists():
         with open(p, "r", encoding='utf-8') as f:
-            msg = f.read()
+            msg: str = f.read()
     else:
         print("\nencrypted.txt does not exist.")
         exit()
@@ -140,7 +140,7 @@ def decrypt_msg(private_key) -> str:
 
     # Join the decrypted byte chunks
     try:
-        decrypted_bytes = b''.join(decrypted_chunks)
+        decrypted_bytes: bytes = b''.join(decrypted_chunks)
         decrypted_msg: str = decrypted_bytes.decode('utf-8')
     except UnicodeDecodeError:
         print("Access denied. Cannot decrypt with the provided key.")
