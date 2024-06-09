@@ -1,5 +1,7 @@
 \.history
 \.vscode
+\__pycache__
 .gitignore
 *.txt
 *.json
+scratch.py

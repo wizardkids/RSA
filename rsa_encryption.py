@@ -17,7 +17,6 @@ Source: https://condor.depaul.edu/ichu/csc415/notes/notes4/rsa.html
 
 import json
 import math
-from pathlib import Path
 from random import randint
 
 import click
@@ -47,6 +46,7 @@ def cli(message, file, printkeys, generate) -> None:
     # print()
     # ic(message, file, printkeys, generate)
     # print()
+
 
     main(message, file, printkeys, generate)
 
@@ -150,6 +150,124 @@ def decrypt_msg(private_key) -> str:
 
 
 # ==== UTILITY FUNCTIONS =====================================================
+def generate_keys() -> tuple[list[int], int, int, list[int]]:
+    """
+    There are two sub-functions in this function. One [get_ints()] generates the integers needed to construct the keys and the other [generate_public_private()] generates the keys themselves.
+
+    p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
+
+    Returns
+    -------
+    tuple[list[int], int, int, list[int]] -- public_key, p, q, private_key
+        public_key [list]: [e, n]
+        p (int): used to create n and T
+        q (int): used to create n and T
+        private_key [list]: [d, n]
+    """
+
+    def generate_public_private() -> tuple[list[int], list[int], int, int]:
+        """
+        This function generates p, q, n, d, and e. p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
+
+        Returns
+        -------
+        tuple[list[int], list[int], int, int] -- public_key, private_key, p, q
+            public_key = [e, n]
+            private_key = [d, n]
+            p, q for debugging purposes only
+        """
+
+        p, q, e, d, n = get_ints()
+
+        # CODENOTE:
+        # We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
+
+        # Here, we save the public_key, private_key, p, and q:
+        print("The name you enter will be the filename for the\nfile holding the keys.")
+        user_name: str = input("To whom do these keys belong: ").lower()
+        if user_name:
+            keys = {"public_key": [e, n], "private_key": [d, n], "p": p, "q": q}
+            filename: str = user_name.strip() + ".json"
+            with open(filename, 'w', encoding="utf-8") as f:
+                json.dump(keys, f)
+        else:
+            print("No recipient name entered.")
+            exit()
+
+        return [e, n], [d, n], p, q
+
+    def get_ints() -> tuple[int, int, int, int, int]:
+        """
+        This function generates the integers needed to construct the public and private keys, namely:
+                p, q: Two random integers, the bigger the better, both primes
+                n: p * q -- part of the public key
+                T: (p-1) * (q-1)
+                e: coprime to T; part of the public_key
+                d: the modular inverse of e and T; this is the private_key
+
+                sender sends c and his public key (e & n):
+                c = m**e % n
+
+                recipient calculates m using his public key (e & n)
+                d*e = 1 % T
+                m = c**d % n
+
+                EXAMPLE:
+
+                SENDER
+                    p = 5  q = 11
+                    n = p*q = 55 (public)
+                    T = (p-1)(q-1) = 40
+                    e = 3 (public) any coprime value will work here
+                    m = 7
+                    c = m**e % n = 7**3 % 55 =
+
+                RECIPIENT:
+
+
+
+        Integer values here are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
+
+        Returns
+        -------
+        tuple[int, int, int, int, int] -- p, q, e, d, n
+        """
+
+        n = 100
+        while n <= 1000:
+            p = 4
+            while not is_prime(p):
+                p: int = randint(5, 100)
+            q = 4
+            while not is_prime(q):
+                q: int = randint(4, p - 1)
+            n: int = p * q
+
+        p, q = sorted([p, q])
+        T: int = (p - 1) * (q - 1)   # T is for Totient
+
+        e, d = randint(5, 23), 3
+        while d <= e:
+            # e must be prime, < T, and must not be a factor of T
+            for e in range(max(p, q) + 1, T):
+                """
+                -- (d * e) mod T == 1  and solve for d... requires a modular inverse.
+                -- In other words, the mod T of the private_key * public_key is 1.
+                -- If T = 108, e = 29 then d = 41 satisfies this requirement...
+                -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
+                """
+                d: int = modinv(e, T)    # modular inverse of e mod T
+
+                if is_prime(e) and coprime(e, T):
+                    break
+
+        return p, q, e, d, n
+
+    public_key, private_key, p, q = generate_public_private()
+
+    return public_key, p, q, private_key
+
+
 def modinv(a: int, b: int) -> int:
     """
     Returns the modular inverse of a mod b.
@@ -226,108 +344,9 @@ def is_prime(n: int) -> bool:
             return False
 
     return True
-
-
-def generate_keys() -> tuple[list[int], int, int, list[int]]:
-    """
-    There are two sub-functions in this function. One [get_ints()] generates the integers needed to construct the keys and the other [generate_public_private()] generates the keys themselves.
-
-    p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
-
-    Returns
-    -------
-    tuple[list[int], int, int, list[int]] -- public_key, p, q, private_key
-        public_key [list]: [e, n]
-        p (int): used to create n and T
-        q (int): used to create n and T
-        private_key [list]: [d, n]
-    """
-
-    def generate_public_private() -> tuple[list[int], list[int], int, int]:
-        """
-        This function generates p, q, n, d, and e. p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
-
-        Returns
-        -------
-        tuple[list[int], list[int], int, int] -- public_key, private_key, p, q
-            public_key = [e, n]
-            private_key = [d, n]
-            p, q for debugging purposes only
-        """
-
-        p, q, e, d, n = get_ints()
-
-        # CODENOTE:
-        # We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
-
-        # Here, we save the public_key, private_key, p, and q:
-        print("The name you enter will be the filename for the\nfile holding the keys.")
-        user_name: str = input("To whom do these keys belong: ").lower()
-        if user_name:
-            keys = {"public_key": [e, n], "private_key": [d, n], "p": p, "q": q}
-            filename: str = user_name.strip() + ".json"
-            with open(filename, 'w', encoding="utf-8") as f:
-                json.dump(keys, f)
-        else:
-            print("No recipient name entered.")
-            exit()
-
-        return [e, n], [d, n], p, q
-
-    def get_ints() -> tuple[int, int, int, int, int]:
-        """
-        This function generates the integers needed to construct the public and private keys, namely:
-                p, q: Two random integers, the bigger the better, both primes
-                n: p * q
-                T: (p-1) * (q-1)
-                e: prime number, where e and T are coprime; this is the public_key
-                d: the modular inverse of e and T; this is the private_key
-
-        Integer values are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
-
-        Returns
-        -------
-        tuple[int, int, int, int, int] -- p, q, e, d, n
-        """
-
-        n = 100
-        while n <= 1000:
-            p = 4
-            while not is_prime(p):
-                p: int = randint(5, 100)
-            q = 4
-            while not is_prime(q):
-                q: int = randint(4, p - 1)
-            n: int = p * q
-
-        p, q = sorted([p, q])
-        T: int = (p - 1) * (q - 1)   # T is for Totient
-
-        e, d = randint(5, 23), 3
-        while d <= e:
-            # e must be prime, < T, and must not be a factor of T
-            for e in range(max(p, q) + 1, T):
-                """
-                -- (d * e) mod T == 1  and solve for d... requires a modular inverse.
-                -- In other words, the mod T of the private_key * public_key is 1.
-                -- If T = 108, e = 29 then d = 41 satisfies this requirement...
-                -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
-                """
-                d: int = modinv(e, T)    # modular inverse of e mod T
-
-                if is_prime(e) and coprime(e, T):
-                    break
-
-        return p, q, e, d, n
-
-    public_key, private_key, p, q = generate_public_private()
-
-    return public_key, p, q, private_key
-
-
 def print_ints(p, q, public_key, private_key) -> None:
     """
-    Used only for debugging purposes. Prints p, q, n, T, e, d, public_key and private_key
+    Used only for debugging purposes. Prints p, q, n, T, e, d, public_key, and private_key
     """
     print()
     print(
@@ -393,7 +412,7 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
 
     # generate_keys() takes no arguments but creates a public_key [e, n], p, q, and private_key [d, n], then saves them in a json file.
     # p and q are only required for debugging (see print_ints() to print the details)
-    # ! This option is used ONLY to generate keys for a specific recipient.
+    # ! This option is used to generate keys for a sender and a recipient
     if generate:
         generate_keys()
         exit()
