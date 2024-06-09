@@ -202,8 +202,9 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
                 p, q: Two random integers, the bigger the better, both primes
                 n: p * q -- part of the public key
                 T: (p-1) * (q-1)
-                e: coprime to T; part of the public_key
+                e: coprime of T; part of the public_key
                 d: the modular inverse of e and T; this is the private_key
+                m: a secret number
 
                 sender sends c and his public key (e & n):
                 c = m**e % n
@@ -218,7 +219,7 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
             p = 5  q = 11
             n = p*q = 55 (public)
             T = (p-1)(q-1) = 40
-            e = 3 (public) any coprime value will work here
+            e = 3 (public) any coprime of T will work here
             m = 7
             c = m**e % n = 7**3 % 55 = 13 --> sent to recipient
 
@@ -235,35 +236,58 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
         tuple[int, int, int, int, int] -- p, q, e, d, n
         """
 
-        n = 100
-        while n <= 1000:
-            p = 4
-            while not is_prime(p):
-                p: int = randint(5, 100)
-            q = 4
-            while not is_prime(q):
-                q: int = randint(4, p - 1)
-            n: int = p * q
+        for round in range(1, 3):
 
-        p, q = sorted([p, q])
-        T: int = (p - 1) * (q - 1)   # T is for Totient
+            if round == 1:  # the SENDER
+                n = 100
+                while n <= 1000:
+                    p = 4
+                    while not is_prime(p):
+                        p: int = randint(5, 100)
+                    q = 4
+                    while not is_prime(q):
+                        q: int = randint(4, p - 1)
+                    n: int = p * q
+                p, q = sorted([p, q])
+                T: int = (p - 1) * (q - 1)   # T is for Totient
+                m: int = randint(10, 100) # m is a private number chosen by SENDER
 
-        e, d = randint(5, 23), 3
-        while d <= e:
-            # e must be prime, < T, and must not be a factor of T
-            for e in range(max(p, q) + 1, T):
-                """
-                -- (d * e) mod T == 1  and solve for d... requires a modular inverse.
-                -- In other words, the mod T of the private_key * public_key is 1.
-                -- If T = 108, e = 29 then d = 41 satisfies this requirement...
-                -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
-                """
-                d: int = modinv(e, T)    # modular inverse of e mod T
+                e, d = randint(5, 23), 3
+                while d <= e:
+                    # e is a coprime of T: must be prime, < T, and must not be a factor of T
+                    for e in range(max(p, q) + 1, T):
+                        """
+                        -- (d * e) = 1 mod T
+                        -- In other words, the mod T of the private_key * public_key is 1.
+                        -- If T = 108, e = 29 then d = 41 satisfies this requirement...
+                        -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
+                        """
+                        # Compute "d" since "d" must be less than or equal to "e".
+                        d: int = modinv(e, T)
 
-                if is_prime(e) and coprime(e, T):
-                    break
+                        if is_prime(e) and coprime(e, T):
+                            break
 
-        return p, q, e, d, n
+                c: int = (m**e) % n
+                sender_keys = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
+                with open("sender.json", 'w', encoding='utf-8') as file:
+                    json.dump(sender_keys, file)
+
+            else:  # the RECIPIENT
+                with open("sender.json", "r", encoding='utf-8') as file:
+                    sender_keys: dict[str, int] = json.load(file)
+                n: int = sender_keys['public_key']['n']
+                e: int = sender_keys['public_key']['e']
+                T: int = sender_keys['public_key']['T']
+                c: int = sender_keys['c']
+
+                # reconstruct "m"
+                d = modinv(e, T)
+                m = (c**d) % n
+
+                recipient_keys: dict[str, int]  = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
+                with open("recipient.json", 'w', encoding='utf-8') as file:
+                    json.dump(recipient_keys, file)
 
     public_key, private_key, p, q = generate_public_private()
 
