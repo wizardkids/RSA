@@ -29,7 +29,7 @@ VERSION = "0.2"
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
 @click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys for a specified recipient.")
-@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a recipient.")
+@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for sender & recipient.")
 @click.version_option(version=VERSION)
 def cli(message, file, printkeys, generate) -> None:
     """
@@ -51,7 +51,7 @@ def cli(message, file, printkeys, generate) -> None:
     main(message, file, printkeys, generate)
 
 
-def encrypt_msg(msg, public_key) -> str:
+def encrypt_msg(msg) -> None:
     """
     Using the public_key [e, n], encrypt the text in "msg". This function returns a string that will be saved to "encrypted.txt".
 
@@ -77,8 +77,11 @@ def encrypt_msg(msg, public_key) -> str:
     "hello" -> 437 730 811 811 1591
     """
 
-    e: int = public_key[0]
-    n: int = public_key[1]
+    with open("sender.json", 'r', encoding='utf-8') as file:
+        sender_keys = json.load(file)
+
+    e: int = sender_keys['public_key']['e']
+    n: int = sender_keys['public_key']['n']
 
     chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
 
@@ -95,7 +98,9 @@ def encrypt_msg(msg, public_key) -> str:
 
     encrypted_msg: str = " ".join(e_msg)
 
-    return encrypted_msg
+    # Save the encrypted message.
+    with open("encrypted.txt", 'w', encoding="utf-8") as file:
+        file.write(encrypted_msg)
 
 
 def decrypt_msg(private_key) -> str:
@@ -149,151 +154,93 @@ def decrypt_msg(private_key) -> str:
     return decrypted_msg
 
 
+def generate_keys():
+    """
+    This function generates the integers needed to construct the public and private keys, namely:
+            p, q: Two random integers, the bigger the better, both primes
+            n: p * q -- part of the public key
+            T: (p-1) * (q-1)
+            e: coprime of T; part of the public_key
+            d: the modular inverse of e and T; this is the private_key
+            m: a secret number
+
+            sender sends c and his public key (e & n):
+            c = m**e % n
+
+            recipient calculates m using his public key (e & n)
+            d*e = 1 % T
+            m = c**d % n
+
+    EXAMPLE:
+
+    SENDER
+        p = 5  q = 11
+        n = p*q = 55 (public)
+        T = (p-1)(q-1) = 40
+        e = 3 (public) any coprime of T will work here
+        m = 7
+        c = m**e % n = 7**3 % 55 = 13 --> sent to recipient
+
+    RECIPIENT:
+        receives c, n, and e
+        d * e = 1 % T --> d * 3 = 1 % 40 --> d = 27 (modular inverse of e,T or 3,40)
+        m = c**d % n = 13**27 mod 55 = 7
+
+
+    Integer values here are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
+    """
+
+    # round 1 creates the sender's keys and round 2 creates the recipient's keys.
+    for round in range(1, 3):
+
+        if round == 1:  # the SENDER
+            n = 100
+            while n <= 1000:
+                p = 4
+                while not is_prime(p):
+                    p: int = randint(5, 100)
+                q = 4
+                while not is_prime(q):
+                    q: int = randint(4, p - 1)
+                n: int = p * q
+            p, q = sorted([p, q])
+            T: int = (p - 1) * (q - 1)   # T is for Totient
+            m: int = randint(10, 100) # m is a private number chosen by SENDER
+
+            e, d = randint(5, 23), 3
+            while d <= e:
+                # e is a coprime of T: must be prime, < T, and must not be a factor of T
+                for e in range(max(p, q) + 1, T):
+
+                    # Compute "d" since "d" must be less than or equal to "e".
+                    d: int = modinv(e, T)
+
+                    if is_prime(e) and coprime(e, T):
+                        break
+
+            c: int = (m**e) % n
+            sender_keys = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
+            with open("sender.json", 'w', encoding='utf-8') as file:
+                json.dump(sender_keys, file)
+
+        else:  # the RECIPIENT
+            with open("sender.json", "r", encoding='utf-8') as file:
+                sender_keys: dict[str, int] = json.load(file)
+            n: int = sender_keys['public_key']['n']
+            e: int = sender_keys['public_key']['e']
+            T: int = sender_keys['public_key']['T']
+            c: int = sender_keys['c']
+
+            # reconstruct "m"
+            d = modinv(e, T)
+            m = (c**d) % n
+
+            recipient_keys: dict[str, int]  = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
+            with open("recipient.json", 'w', encoding='utf-8') as file:
+                json.dump(recipient_keys, file)
+
+
 # ==== UTILITY FUNCTIONS =====================================================
-def generate_keys() -> tuple[list[int], int, int, list[int]]:
-    """
-    There are two sub-functions in this function. One [get_ints()] generates the integers needed to construct the keys and the other [generate_public_private()] generates the keys themselves.
-
-    p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
-
-    Returns
-    -------
-    tuple[list[int], int, int, list[int]] -- public_key, p, q, private_key
-        public_key [list]: [e, n]
-        p (int): used to create n and T
-        q (int): used to create n and T
-        private_key [list]: [d, n]
-    """
-
-    def generate_public_private() -> tuple[list[int], list[int], int, int]:
-        """
-        This function generates p, q, n, d, and e. p and q are returned only for debugging purposes. They are required to create the keys, but not to use the keys.
-
-        Returns
-        -------
-        tuple[list[int], list[int], int, int] -- public_key, private_key, p, q
-            public_key = [e, n]
-            private_key = [d, n]
-            p, q for debugging purposes only
-        """
-
-        p, q, e, d, n = get_ints()
-
-        # CODENOTE:
-        # We could return T, rather than p,q since generate_private() only needs T and not p,q. However, for the time being, we pass p, q for debugging purposes, so that we can print p,q after running all the functions herein.
-
-        # Here, we save the public_key, private_key, p, and q:
-        print("The name you enter will be the filename for the\nfile holding the keys.")
-        user_name: str = input("To whom do these keys belong: ").lower()
-        if user_name:
-            keys = {"public_key": [e, n], "private_key": [d, n], "p": p, "q": q}
-            filename: str = user_name.strip() + ".json"
-            with open(filename, 'w', encoding="utf-8") as f:
-                json.dump(keys, f)
-        else:
-            print("No recipient name entered.")
-            exit()
-
-        return [e, n], [d, n], p, q
-
-    def get_ints() -> tuple[int, int, int, int, int]:
-        """
-        This function generates the integers needed to construct the public and private keys, namely:
-                p, q: Two random integers, the bigger the better, both primes
-                n: p * q -- part of the public key
-                T: (p-1) * (q-1)
-                e: coprime of T; part of the public_key
-                d: the modular inverse of e and T; this is the private_key
-                m: a secret number
-
-                sender sends c and his public key (e & n):
-                c = m**e % n
-
-                recipient calculates m using his public key (e & n)
-                d*e = 1 % T
-                m = c**d % n
-
-        EXAMPLE:
-
-        SENDER
-            p = 5  q = 11
-            n = p*q = 55 (public)
-            T = (p-1)(q-1) = 40
-            e = 3 (public) any coprime of T will work here
-            m = 7
-            c = m**e % n = 7**3 % 55 = 13 --> sent to recipient
-
-        RECIPIENT:
-            receives c, n, and e
-            d * e = 1 % T --> d * 3 = 1 % 40 --> d = 27 (modular inverse of e,T or 3,40)
-            m = c**d % n = 13**27 mod 55 = 7
-
-
-        Integer values here are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
-
-        Returns
-        -------
-        tuple[int, int, int, int, int] -- p, q, e, d, n
-        """
-
-        for round in range(1, 3):
-
-            if round == 1:  # the SENDER
-                n = 100
-                while n <= 1000:
-                    p = 4
-                    while not is_prime(p):
-                        p: int = randint(5, 100)
-                    q = 4
-                    while not is_prime(q):
-                        q: int = randint(4, p - 1)
-                    n: int = p * q
-                p, q = sorted([p, q])
-                T: int = (p - 1) * (q - 1)   # T is for Totient
-                m: int = randint(10, 100) # m is a private number chosen by SENDER
-
-                e, d = randint(5, 23), 3
-                while d <= e:
-                    # e is a coprime of T: must be prime, < T, and must not be a factor of T
-                    for e in range(max(p, q) + 1, T):
-                        """
-                        -- (d * e) = 1 mod T
-                        -- In other words, the mod T of the private_key * public_key is 1.
-                        -- If T = 108, e = 29 then d = 41 satisfies this requirement...
-                        -- (41 * 29) % 108 = 1. BUT, to find "d" we need a modular inverse function.
-                        """
-                        # Compute "d" since "d" must be less than or equal to "e".
-                        d: int = modinv(e, T)
-
-                        if is_prime(e) and coprime(e, T):
-                            break
-
-                c: int = (m**e) % n
-                sender_keys = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
-                with open("sender.json", 'w', encoding='utf-8') as file:
-                    json.dump(sender_keys, file)
-
-            else:  # the RECIPIENT
-                with open("sender.json", "r", encoding='utf-8') as file:
-                    sender_keys: dict[str, int] = json.load(file)
-                n: int = sender_keys['public_key']['n']
-                e: int = sender_keys['public_key']['e']
-                T: int = sender_keys['public_key']['T']
-                c: int = sender_keys['c']
-
-                # reconstruct "m"
-                d = modinv(e, T)
-                m = (c**d) % n
-
-                recipient_keys: dict[str, int]  = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q, "m": m}
-                with open("recipient.json", 'w', encoding='utf-8') as file:
-                    json.dump(recipient_keys, file)
-
-    public_key, private_key, p, q = generate_public_private()
-
-    return public_key, p, q, private_key
-
-
 def modinv(a: int, b: int) -> int:
     """
     A multiplicative inverse is two numbers that multiply together to yield (1 mod m).
@@ -464,13 +411,13 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
 
     # If there's a message, encrypt it, otherwise assume we want to decrypt "encrypted.txt"
     if message:
-        recipient: str = input("Who will receive this message/file: ").lower()
-        keys = get_keys(recipient)
-        encrypted_msg: str = encrypt_msg(message, keys['public_key'])
+        # recipient: str = input("Who will receive this message/file: ").lower()
+        # keys = get_keys(recipient)
+        # encrypted_msg: str = encrypt_msg(message, keys['public_key'])
 
-        with open('encrypted.txt', 'w', encoding="utf-8") as f:
-            f.write(encrypted_msg)
-
+        # with open('encrypted.txt', 'w', encoding="utf-8") as f:
+        #     f.write(encrypted_msg)
+        encrypt_msg(message)
         print('Encrypted message saved as "encrypted.txt".')
 
     else:
