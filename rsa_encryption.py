@@ -205,27 +205,6 @@ def generate_keys() -> tuple[list[int], int, int, list[int]]:
                 e: coprime to T; part of the public_key
                 d: the modular inverse of e and T; this is the private_key
 
-                sender sends c and his public key (e & n):
-                c = m**e % n
-
-                recipient calculates m using his public key (e & n)
-                d*e = 1 % T
-                m = c**d % n
-
-                EXAMPLE:
-
-                SENDER
-                    p = 5  q = 11
-                    n = p*q = 55 (public)
-                    T = (p-1)(q-1) = 40
-                    e = 3 (public) any coprime value will work here
-                    m = 7
-                    c = m**e % n = 7**3 % 55 =
-
-                RECIPIENT:
-
-
-
         Integer values here are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
 
         Returns
