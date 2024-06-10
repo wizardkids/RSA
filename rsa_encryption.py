@@ -78,10 +78,16 @@ def encrypt_msg(msg) -> None:
     "hello" -> 437 730 811 811 1591
     """
 
-    with open("sender.json", 'r', encoding='utf-8') as file:
-        sender_keys = json.load(file)
-    with open("recipient.json", 'r', encoding='utf-8') as file:
-        recipient_keys = json.load(file)
+    recipient: str = input("Who will receive this message/file: ").strip().lower()
+    filename: str = recipient + ".json"
+
+    p = Path(filename)
+    if p.exists():
+        with open(filename, 'r', encoding='utf-8') as file:
+            recipient_keys = json.load(file)
+    else:
+        print(f'Could not find keys for {recipient}.\nUse --generate to generate keys for {recipient}.')
+        exit()
 
     e: int = recipient_keys['public_key']['e']
     n: int = recipient_keys['public_key']['n']
@@ -110,6 +116,8 @@ def encrypt_msg(msg) -> None:
     # Save the encrypted message.
     with open("encrypted.txt", 'w', encoding="utf-8") as file:
         file.write(encrypted_msg)
+
+    print('Encrypted message saved as "encrypted.txt".')
 
 
 def decrypt_msg() -> None:
@@ -141,10 +149,17 @@ def decrypt_msg() -> None:
         print("\nencrypted.txt does not exist.")
         exit()
 
-    with open("sender.json", 'r', encoding='utf-8') as file:
-        sender_keys = json.load(file)
-    with open("recipient.json", 'r', encoding='utf-8') as file:
-        recipient_keys = json.load(file)
+    recipient: str = input("Who is decrypting this message/file: ").strip().lower()
+    filename: str = recipient + ".json"
+    p = Path(filename)
+    if p.exists():
+        with open(filename, 'r', encoding='utf-8') as file:
+            recipient_keys = json.load(file)
+
+    # with open("sender.json", 'r', encoding='utf-8') as file:
+    #     sender_keys = json.load(file)
+    # with open("recipient.json", 'r', encoding='utf-8') as file:
+    #     recipient_keys = json.load(file)
 
     n: int = recipient_keys['public_key']['n']
     d: int = recipient_keys['private_key']
@@ -172,83 +187,70 @@ def decrypt_msg() -> None:
 
 def generate_keys():
     """
-    This function generates the integers needed to construct the public and private keys, namely:
+    This function generates the integers needed to construct public and private keys, namely:
             p, q: Two random integers, the bigger the better, both primes
             n: p * q -- part of the public key
             T: (p-1) * (q-1)
             e: coprime of T; part of the public_key
             d: the modular inverse of e and T; this is the private_key
-            m: a secret number
-
-            sender sends c and his public key (e & n):
-            c = m**e % n
-
-            recipient calculates m using his public key (e & n)
-            d*e = 1 % T
-            m = c**d % n
-
-    EXAMPLE:
-
-    SENDER
-        p = 5  q = 11
-        n = p*q = 55 (public)
-        T = (p-1)(q-1) = 40
-        e = 3 (public) any coprime of T will work here
-        m = 7
-        c = m**e % n = 7**3 % 55 = 13 --> sent to recipient
-
-    RECIPIENT:
-        receives c, n, and e
-        d * e = 1 % T --> d * 3 = 1 % 40 --> d = 27 (modular inverse of e,T or 3,40)
-        m = c**d % n = 13**27 mod 55 = 7
-
 
     CODENOTE:
         Integer values here are kept purposely small because there is no need rock-solid encryption, and using large numbers slows the processes of encrypt/decryption significantly.
     """
 
-    # round 1 creates the sender's keys and round 2 creates the recipient's keys.
-    for round in range(1, 3):
+    sender: str = input("Name of key holder: ").strip().lower()
+    if not sender:
+        exit()
 
-        # STEP 1:
-        #       SELECT TWO PRIME NUMBERS AND p < q
-        #       CREATE semi-prime "n" AS THE PRODUCT OF p * q
-        #       CREATE "T" AS THE TOTIENT
-        n = 100
-        # we are purposely keeping "n" below 1000
-        while n <= 1000:
-            p = 4
-            while not is_prime(p):
-                p: int = randint(5, 100)
-            q = 4
-            while not is_prime(q):
-                q: int = randint(4, p - 1)
-            n: int = p * q
-        p, q = sorted([p, q])
-        T: int = (p - 1) * (q - 1)   # T is for Totient
+    # STEP 1:
+    #       SELECT TWO PRIME NUMBERS AND p < q
+    #       CREATE semi-prime "n" AS THE PRODUCT OF p * q
+    #       CREATE "T" AS THE TOTIENT
+    n = 100
+    # we are purposely keeping "n" below 1000
+    while n <= 1000:
+        p = 4
+        while not is_prime(p):
+            p: int = randint(5, 100)
+        q = 4
+        while not is_prime(q):
+            q: int = randint(4, p - 1)
+        n: int = p * q
+    p, q = sorted([p, q])
+    T: int = (p - 1) * (q - 1)   # T is for Totient
 
-        # STEP 2: CREATE "e", THE PUBLIC KEY
-        #       "e" MUST BE A PRIME
-        #       "e" < "T"
-        #       "e" MUST NOT BE A FACTOR OF "T"
-        for e in range(max(p, q) + 1, T-1):
+    # STEP 2: CREATE "e", THE PUBLIC KEY
+    #       "e" MUST BE A PRIME
+    #       "e" < "T"
+    #       "e" MUST NOT BE A FACTOR OF "T"
+    for e in range(max(p, q) + 1, T-1):
 
-            # "e" is not a  factor of "T" is T % e != 0
-            f = T % e
+        # "e" is not a  factor of "T" is T % e != 0
+        f = T % e
 
-            if is_prime(e) and e < T and f != 0:
-                break
+        if is_prime(e) and e < T and f != 0:
+            break
 
-        # STEP 3: CREATE A PRIVATE KEY "d" such that (d*e) % T == 1
-        #       this requires using a multiplicative inverse function
-        d: int = modinv(e, T)
+    # STEP 3: CREATE A PRIVATE KEY "d" such that (d*e) % T == 1
+    #       this requires using a multiplicative inverse function
+    d: int = modinv(e, T)
 
-        # c: int = (m**e) % n
+    # c: int = (m**e) % n
 
-        keys = {"public_key": {"n": n, "e": e, "T": T}, "private_key": d, "p": p, "q": q}
-        filename = "sender.json" if round == 1 else "recipient.json"
+    keys: dict[str, int] = {"public_key": {"n": n, "e": e, "T": T}, "private_key": d, "p": p, "q": q}
+    filename: str = sender + ".json"
+
+    p = Path(filename)
+    response: str = "n"
+    if p.exists():
+        prompt: str = f'{filename} already exists. Overwrite? (y/n)'
+        response: str = input(prompt).strip().lower()
+        if response != 'y':
+                exit()
+    else:
         with open(filename, 'w', encoding='utf-8') as file:
-                json.dump(keys, file)
+            json.dump(keys, file)
+    print(f'\nKeys for {sender} have been saved to {filename}.json')
 
 
 # ==== UTILITY FUNCTIONS =====================================================
@@ -429,7 +431,6 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
         # with open('encrypted.txt', 'w', encoding="utf-8") as f:
         #     f.write(encrypted_msg)
         encrypt_msg(message)
-        print('Encrypted message saved as "encrypted.txt".')
 
     else:
         # recipient: str = input("Who is the recipient of this message/file: ").lower()
