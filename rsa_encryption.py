@@ -7,9 +7,8 @@
 
 PUBLIC KEY CRYPTOGRAPHY IN SUMMARY:
 -- A public key is used to encrypt and a separate, different private key to decrypt the message.
--- Each party involved generates a key pair.
--- Each party publishes their public key. This is made widely known to all potential communication partners.
--- Each party secures their private key, which must remain secret.
+-- The recipient party generates a key pair and publishes their public key (aka, sends their public key to the person(s) who need to send the recipient documents).
+-- Private keys are secured and must remain secret.
 -- Assuming A desires to send a message to B, A first encrypts the message using B's public key.
 -- B can decrypt the message using its private key. Since no one else knows B's private key, this is absolutely secure -- no one else can decrypt it.
 Source: https://condor.depaul.edu/ichu/csc415/notes/notes4/rsa.html
@@ -27,11 +26,11 @@ from pandas import qcut
 VERSION = "0.2"
 
 
-@click.command(help="Encrypt or decrypt [MESSAGE] or [PATH] using RSA encryption. [MESSAGE] must be a quote-delimited string.\n\nThe encrypted content is written to \"encrypted.txt\" and the content of that file is decrypted to \"decrypted.txt\". If either file exists, it will be overwritten.", epilog="EXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified recipient\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified recipient")
+@click.command(help="Prepare an encrypted [MESSAGE] or [PATH] using RSA encryption for a specified recipient using the recipient's public key.  The content of that file is decrypted by the recipient using their private key. [MESSAGE] must be a quote-delimited string.", epilog="Encrypted content is saved in \"encrypted.txt\" while decrypted content is saved to \"decrypted.txt\". If either .txt file exists, it will be overwritten.\n\n\n\nEXAMPLE USAGE:\n\nrsa_encryption.py \"The troops roll out at midnight.\" --> encrypts for a specified recipient\n\nrsa_encryption.py --> decrypts \"encrypted.txt\" for a specified recipient")
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=False), help='File to encrypt.')
 @click.option("-p", "--printkeys", is_flag=True, default=False, help="Print the keys for a specified recipient.")
-@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for sender & recipient.")
+@click.option("-g", "--generate", is_flag=True, default=False, help="Generate keys for a specified keyholder.")
 @click.version_option(version=VERSION)
 def cli(message, file, printkeys, generate) -> None:
     """
@@ -79,12 +78,12 @@ def encrypt_msg(msg) -> None:
     """
 
     recipient: str = input("Who will receive this message/file: ").strip().lower()
-    filename: str = recipient + ".json"
+    file: str = recipient + ".json"
 
-    p = Path(filename)
-    if p.exists():
-        with open(filename, 'r', encoding='utf-8') as file:
-            recipient_keys = json.load(file)
+    filename: Path = Path(file)
+    if filename.exists():
+        with open(filename, 'r', encoding='utf-8') as f:
+            recipient_keys: dict[str, dict[str, int] | int] = json.load(f)
     else:
         print(f'Could not find keys for {recipient}.\nUse --generate to generate keys for {recipient}.')
         exit()
@@ -93,7 +92,9 @@ def encrypt_msg(msg) -> None:
     n: int = recipient_keys['public_key']['n']
 
     chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
-    chunk_size=1 if chunk_size== 0 else chunk_size
+
+    # I added this because some value of "n" gave a chunk_size of -0- ?!?
+    chunk_size = 1 if chunk_size == 0 else chunk_size
 
     # Encode the message to bytes.
     message_bytes: bytes = msg.encode('utf-8')
@@ -107,22 +108,22 @@ def encrypt_msg(msg) -> None:
 
         # The following line computes c = (m**e) mod n behind the scenes.
         # This means decryption needs "m".
-        ciphertext = chunk_int**e % n
+        ciphertext: int = chunk_int**e % n
 
         e_msg.append(str(ciphertext))
 
     encrypted_msg: str = " ".join(e_msg)
 
     # Save the encrypted message.
-    with open("encrypted.txt", 'w', encoding="utf-8") as file:
-        file.write(encrypted_msg)
+    with open("encrypted.txt", 'w', encoding="utf-8") as f:
+        f.write(encrypted_msg)
 
     print('Encrypted message saved as "encrypted.txt".')
 
 
 def decrypt_msg() -> None:
     """
-    Decrypt the contents of "encrypted.txt" using "d" & "n" in "private_key".
+    Decrypt the contents of "encrypted.txt" using the recipient's private and public  keys. Decrypted text is saved in "decrypted.txt".
 
     CODENOTE:
         Originally, the for... loop was:
@@ -131,35 +132,22 @@ def decrypt_msg() -> None:
                 decrypt.append(chr(m))
 
         This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks (and the encryption process had to encrypt bytes in chunks).
-
-    Parameters
-    ----------
-    private_key : list[int] -- d, n
-
-    Returns
-    -------
-    str -- decrypted "msg"...
     """
 
-    p = Path("encrypted.txt")
-    if p.exists():
-        with open(p, "r", encoding='utf-8') as f:
+    pth: Path = Path("encrypted.txt")
+    if pth.exists():
+        with open(pth, "r", encoding='utf-8') as f:
             m: str = f.read()
     else:
         print("\nencrypted.txt does not exist.")
         exit()
 
     recipient: str = input("Who is decrypting this message/file: ").strip().lower()
-    filename: str = recipient + ".json"
-    p = Path(filename)
-    if p.exists():
-        with open(filename, 'r', encoding='utf-8') as file:
-            recipient_keys = json.load(file)
-
-    # with open("sender.json", 'r', encoding='utf-8') as file:
-    #     sender_keys = json.load(file)
-    # with open("recipient.json", 'r', encoding='utf-8') as file:
-    #     recipient_keys = json.load(file)
+    file: str = recipient + ".json"
+    filename: Path = Path(file)
+    if filename.exists():
+        with open(filename, 'r', encoding='utf-8') as f:
+            recipient_keys = json.load(f)
 
     n: int = recipient_keys['public_key']['n']
     d: int = recipient_keys['private_key']
@@ -181,8 +169,8 @@ def decrypt_msg() -> None:
         print("Access denied. Cannot decrypt with the provided key.")
         exit()
 
-    with open('decrypted.txt', 'w', encoding='utf-8') as file:
-        file.write(decrypted_msg)
+    with open('decrypted.txt', 'w', encoding='utf-8') as f:
+        f.write(decrypted_msg)
 
 
 def generate_keys():
@@ -206,13 +194,15 @@ def generate_keys():
     #       SELECT TWO PRIME NUMBERS AND p < q
     #       CREATE semi-prime "n" AS THE PRODUCT OF p * q
     #       CREATE "T" AS THE TOTIENT
-    n = 100
+
+    n: int = 100
+
     # we are purposely keeping "n" below 1000
     while n <= 1000:
-        p = 4
+        p: int = 4
         while not is_prime(p):
             p: int = randint(5, 100)
-        q = 4
+        q: int = 4
         while not is_prime(q):
             q: int = randint(4, p - 1)
         n: int = p * q
@@ -226,7 +216,7 @@ def generate_keys():
     for e in range(max(p, q) + 1, T-1):
 
         # "e" is not a  factor of "T" is T % e != 0
-        f = T % e
+        f: int = T % e
 
         if is_prime(e) and e < T and f != 0:
             break
@@ -235,22 +225,21 @@ def generate_keys():
     #       this requires using a multiplicative inverse function
     d: int = modinv(e, T)
 
-    # c: int = (m**e) % n
-
-    keys: dict[str, int] = {"public_key": {"n": n, "e": e, "T": T}, "private_key": d, "p": p, "q": q}
+    keys: dict[str, dict[str, int] | int] = {"public_key": {"n": n, "e": e}, "private_key": d}
     filename: str = sender + ".json"
 
-    p = Path(filename)
+    pth: Path = Path(filename)
     response: str = "n"
-    if p.exists():
+    if pth.exists():
         prompt: str = f'{filename} already exists. Overwrite? (y/n)'
         response: str = input(prompt).strip().lower()
         if response != 'y':
-                exit()
-    else:
-        with open(filename, 'w', encoding='utf-8') as file:
-            json.dump(keys, file)
-    print(f'\nKeys for {sender} have been saved to {filename}.json')
+            exit()
+
+    with open(filename, 'w', encoding='utf-8') as file:
+        json.dump(keys, file)
+
+    print(f'\nKeys for {sender} have been saved to {filename}')
 
 
 # ==== UTILITY FUNCTIONS =====================================================
@@ -350,8 +339,8 @@ def print_keys() -> None:
     recipient: str = input("Keys for which recipient: ").lower()
     keys = get_keys(recipient)
 
-    print(f' Public key: {keys["public_key"]}')
-    print(f'Private key: {keys["private_key"]}')
+    print(f" Public key: [n: {keys['public_key']['n']}  e: {keys['public_key']['e']}]")
+    print(f"Private key: [d: {keys['private_key']}]")
 
     # These two variables are included in the json file, but are only used
     # for debugging, so I'm not printing them here.
@@ -397,9 +386,7 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
     generate: str -- flag to generate a private key
     """
 
-    # generate_keys() takes no arguments but creates a public_key [e, n], p, q, and private_key [d, n], then saves them in a json file.
-    # p and q are only required for debugging (see print_ints() to print the details)
-    # ! This option is used to generate keys for a sender and a recipient
+    # generate_keys() takes no arguments but creates a public_key [e, n] and private_key = d, then saves them in a json file named for the keyholder.
     if generate:
         generate_keys()
         exit()
@@ -410,9 +397,9 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
 
     # Make sure we can find the file and put its contents into "message".
     if file:
-        p = Path(file)
-        if p.exists():
-            with open(p, 'r', encoding='utf-8') as f:
+        pth: Path = Path(file)
+        if pth.exists():
+            with open(pth, 'r', encoding='utf-8') as f:
                 message: str = f.read()
         else:
             print(f'Could not find file "{file}"')
@@ -424,20 +411,9 @@ def main(msg: str, file: str, printkeys: str, generate: str) -> None:
 
     # If there's a message, encrypt it, otherwise assume we want to decrypt "encrypted.txt"
     if message:
-        # recipient: str = input("Who will receive this message/file: ").lower()
-        # keys = get_keys(recipient)
-        # encrypted_msg: str = encrypt_msg(message, keys['public_key'])
-
-        # with open('encrypted.txt', 'w', encoding="utf-8") as f:
-        #     f.write(encrypted_msg)
         encrypt_msg(message)
 
     else:
-        # recipient: str = input("Who is the recipient of this message/file: ").lower()
-        # keys = get_keys(recipient)
-        # decrypted_msg: str = decrypt_msg(keys['private_key'])
-        # with open('decrypted.txt', 'w', encoding='utf-8') as f:
-        #     f.write(decrypted_msg)
         decrypt_msg()
         print('Decrypted message saved as "decrypted.txt"')
 
