@@ -85,8 +85,6 @@ def encrypt_msg(msg) -> None:
 
     e: int = recipient_keys['public_key']['e']
     n: int = recipient_keys['public_key']['n']
-    # m: int = sender_keys['m']
-    # c: int = sender_keys['c']
 
     chunk_size: int = (n.bit_length() - 1) // 8  # Max bytes that n can handle minus a bit to be safe.
     chunk_size=1 if chunk_size== 0 else chunk_size
@@ -104,7 +102,6 @@ def encrypt_msg(msg) -> None:
         # The following line computes c = (m**e) mod n behind the scenes.
         # This means decryption needs "m".
         ciphertext = chunk_int**e % n
-        # ciphertext: str = str(pow(chunk_int, e, n))
 
         e_msg.append(str(ciphertext))
 
@@ -150,11 +147,7 @@ def decrypt_msg() -> None:
         recipient_keys = json.load(file)
 
     n: int = recipient_keys['public_key']['n']
-    e: int = recipient_keys['public_key']['e']
-    T: int = recipient_keys['public_key']['T']
-    # c: int = recipient_keys['c']
     d: int = recipient_keys['private_key']
-    # m: int = (c**d) % n
 
     decrypted_chunks: list[bytes] = []
     encrypted_chunks: list[int] = [int(x) for x in m.split()]
@@ -233,7 +226,6 @@ def generate_keys():
             n: int = p * q
         p, q = sorted([p, q])
         T: int = (p - 1) * (q - 1)   # T is for Totient
-        # m: int = randint(10, 100) # m is a private number chosen by SENDER
 
         # STEP 2: CREATE "e", THE PUBLIC KEY
         #       "e" MUST BE A PRIME
@@ -241,14 +233,10 @@ def generate_keys():
         #       "e" MUST NOT BE A FACTOR OF "T"
         for e in range(max(p, q) + 1, T-1):
 
-            # # Compute "d" since "d" must be less than or equal to "e".
-            # d: int = modinv(e, T)
-
             # "e" is not a  factor of "T" is T % e != 0
             f = T % e
 
             if is_prime(e) and e < T and f != 0:
-                # coprime(e, T):
                 break
 
         # STEP 3: CREATE A PRIVATE KEY "d" such that (d*e) % T == 1
@@ -261,21 +249,6 @@ def generate_keys():
         filename = "sender.json" if round == 1 else "recipient.json"
         with open(filename, 'w', encoding='utf-8') as file:
                 json.dump(keys, file)
-
-        # else:  # the RECIPIENT
-        #     with open("sender.json", "r", encoding='utf-8') as file:
-        #         sender_keys: dict[str, int] = json.load(file)
-        #     n: int = sender_keys['public_key']['n']
-        #     e: int = sender_keys['public_key']['e']
-        #     T: int = sender_keys['public_key']['T']
-        #     c: int = sender_keys['c']
-
-        #     # reconstruct "m"
-        #     d = modinv(e, T)
-
-        #     recipient_keys: dict[str, int]  = {"public_key": {"n": n, "e": e, "T": T}, "c": c, "p": p, "q": q}
-        #     with open("recipient.json", 'w', encoding='utf-8') as file:
-        #         json.dump(recipient_keys, file)
 
 
 # ==== UTILITY FUNCTIONS =====================================================
