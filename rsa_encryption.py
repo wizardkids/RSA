@@ -12,6 +12,16 @@ PUBLIC KEY CRYPTOGRAPHY IN SUMMARY:
 -- Assuming A desires to send a message to B, A first encrypts the message using B's public key.
 -- B can decrypt the message using its private key. Since no one else knows B's private key, this is absolutely secure -- no one else can decrypt it.
 Source: https://condor.depaul.edu/ichu/csc415/notes/notes4/rsa.html
+
+Workflow:
+    -- STEP 1
+        -generate keys for a recipient ("Bob")
+    -- STEP 2
+        - identify text (a string or a file) to encrypt
+        - pass the text in and designate a recipient
+        - the recipient's public key is used to encrypt
+    -- STEP 3
+        - the recipient's private key is used to decrypt the text
 """
 
 import json
