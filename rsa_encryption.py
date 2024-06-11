@@ -53,7 +53,7 @@ def cli(message, file, printkeys, generate) -> None:
 
 def encrypt_msg(msg) -> None:
     """
-    Using the public_key [e, n], encrypt the text in "msg". This function returns a string that will be saved to "encrypted.txt".
+    Using the recipient's public_key [e, n], encrypt the text in "msg". This function generates a single string that contains string versions of integers, where each "integer" represents one character in "msg". The string is saved to "encrypted.txt".
 
     CODENOTE:
         The for... loop was originally:
@@ -66,15 +66,7 @@ def encrypt_msg(msg) -> None:
 
     Parameters
     ----------
-    public_key : list[int] -- e, n
-
-    Returns
-    -------
-    str -- encrypted "msg"... a single string that contains string versions of integers, where each "integer" represents one character in "msg"
-
-    Example
-    -------
-    "hello" -> 437 730 811 811 1591
+    msg : str -- message to encrypt
     """
 
     recipient: str = input("Who will receive this message/file: ").strip().lower()
