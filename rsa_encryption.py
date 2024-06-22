@@ -18,7 +18,7 @@ Workflow:
         -generate keys for a recipient ("Bob")
     -- STEP 2
         - identify text (a string or a file) to encrypt
-        - pass the text in and designate a recipient
+        - pass the text on the command line, and then designate a recipient
         - the recipient's public key is used to encrypt
     -- STEP 3
         - the recipient's private key is used to decrypt the text
@@ -30,8 +30,8 @@ from pathlib import Path
 from random import randint
 
 import click
-from icecream import ic
-from pandas import qcut
+
+# from icecream import ic
 
 VERSION = "0.2"
 
@@ -79,6 +79,7 @@ def encrypt_msg(msg) -> None:
     msg : str -- message to encrypt
     """
 
+    # Retrieve the public key for the recipient.
     recipient: str = input("Who will receive this message/file: ").strip().lower()
     file: str = recipient + ".json"
 
@@ -125,7 +126,7 @@ def encrypt_msg(msg) -> None:
 
 def decrypt_msg() -> None:
     """
-    Decrypt the contents of "encrypted.txt" using the recipient's private and public  keys. Decrypted text is saved in "decrypted.txt".
+    Decrypt the contents of "encrypted.txt" using the recipient's private and public keys. Decrypted text is saved in "decrypted.txt".
 
     CODENOTE:
         Originally, the for... loop was:
@@ -136,6 +137,7 @@ def decrypt_msg() -> None:
         This works well for ASCII characters. However, in order to encrypt/decrypt characters with larger code points, we need to decrypt the encrypted message in chunks (and the encryption process had to encrypt bytes in chunks).
     """
 
+    # Retrieve the encrypted message from "encrypted.txt".
     pth: Path = Path("encrypted.txt")
     if pth.exists():
         with open(pth, "r", encoding='utf-8') as f:
@@ -144,6 +146,7 @@ def decrypt_msg() -> None:
         print("\nencrypted.txt does not exist.")
         exit()
 
+    # Determine the recipient's name and get their public and private keys from their .json file.
     recipient: str = input("Who is decrypting this message/file: ").strip().lower()
     file: str = recipient + ".json"
     filename: Path = Path(file)
@@ -154,6 +157,7 @@ def decrypt_msg() -> None:
     n: int = recipient_keys['public_key']['n']
     d: int = recipient_keys['private_key']
 
+    # Decrypt the message using recipient's public and private keys.
     decrypted_chunks: list[bytes] = []
     encrypted_chunks: list[int] = [int(x) for x in m.split()]
     for ciphertext in encrypted_chunks:
@@ -175,7 +179,7 @@ def decrypt_msg() -> None:
         f.write(decrypted_msg)
 
 
-def generate_keys():
+def generate_keys() -> None:
     """
     This function generates the integers needed to construct public and private keys, namely:
             p, q: Two random integers, the bigger the better, both primes
