@@ -30,7 +30,10 @@ The generate_keys() function generates the integers needed to construct public a
 ```
 Usage: rsa_encryption.py [OPTIONS] [MESSAGE]
 
-  Prepare an encrypted [MESSAGE] or [PATH] using RSA encryption for a specified recipient using the recipient's public key. The content of that file is decrypted by the recipient using their private key. [MESSAGE] must be a quote-delimited string.
+  Prepare an encrypted [MESSAGE] or [PATH] using RSA encryption for
+  a specified recipient using the recipient's public key. The
+  content of that file is decrypted by the recipient using their
+  private key. [MESSAGE] must be a quote-delimited string.
 
 Options:
   -f, --file PATH  File to encrypt.
@@ -41,7 +44,9 @@ Options:
   --version        Show the version and exit.
   --help           Show this message and exit.
 
-  Encrypted content is saved in "encrypted.txt" while decrypted content is saved to "decrypted.txt". If either .txt file exists, it will be overwritten.
+  Encrypted content is saved in "encrypted.txt" while decrypted
+  content is saved to "decrypted.txt". If either .txt file exists,
+  it will be overwritten.
 ```
 ### Example usage:
 
